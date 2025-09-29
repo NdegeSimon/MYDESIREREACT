@@ -7,6 +7,12 @@ CORS(app)  # allow React frontend (5173) to call Flask backend (5000)
 # Dummy in-memory storage
 bookings = []
 
+
+@app.route("/")
+def home():
+    return "<h1>BackEnd is Allright</h1>"
+
+
 @app.route("/bookings/", methods=["POST"])
 def create_booking():
     data = request.get_json()

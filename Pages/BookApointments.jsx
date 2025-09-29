@@ -7,6 +7,7 @@ import Calendar from "../components/Calendar";
 import TimeSlots from "../components/TimeSlots";
 import CustomerForm from "../components/CustomerForm";
 import BookingSummary from "../components/BookingSummary";
+import style from "../src/App.css";
 
 function BookingPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
