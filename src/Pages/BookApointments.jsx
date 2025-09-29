@@ -1,13 +1,13 @@
 import React, { useState } from "react";
-import Header from "../../../components/Header";
-import Sidebar from "../components/Sidebar";
-import StaffSelection from "../components/StaffSelection";
-import Services from "../../../components/Services";
-import Calendar from "../components/Calendar";
-import TimeSlots from "../components/TimeSlots";
-import CustomerForm from "../components/CustomerForm";
-import BookingSummary from "../components/BookingSummary";
-import style from "../src/App.css";
+
+// Components (all inside src/components/)
+import Header from "../components/Header";
+import Services from "../components/Services";
+import Calendar from "../components/calendar";      // lowercase file name
+   // File doesn’t exist yet?
+import CustomerForm from "../components/customerform"; // lowercase file name
+import BookingSummary from "../components/Bookingsummary"; // lowercase b
+
 
 function BookingPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
