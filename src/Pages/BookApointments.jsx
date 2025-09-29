@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import Header from "../components/Header";
+import Header from "../../../components/Header";
 import Sidebar from "../components/Sidebar";
 import StaffSelection from "../components/StaffSelection";
-import Services from "../components/Services";
+import Services from "../../../components/Services";
 import Calendar from "../components/Calendar";
 import TimeSlots from "../components/TimeSlots";
 import CustomerForm from "../components/CustomerForm";

@@ -1,7 +1,7 @@
 import React from "react";
 
 import { useEffect, useState } from "react";
-import Sidebar from "../components/Navbar.jsx";
+import Sidebar from "../../components/Navbar.jsx";
 import "../src/App.css"; // your styles
 
 function Home() {
