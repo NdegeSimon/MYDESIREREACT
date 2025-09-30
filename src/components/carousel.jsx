@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import "../index.css";
+import "../App.css"
 
 function Carousel({ slides, interval = 5000 }) {
   const [currentSlide, setCurrentSlide] = useState(0);
