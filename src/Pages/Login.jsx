@@ -198,3 +198,26 @@ function Login() {
 }
 
 export default Login;
+// Pages/Login.jsx
+// import React from "react";
+// import { Link } from "react-router-dom";
+
+// function Login() {
+//   return (
+//     <div style={{ 
+//       padding: '50px', 
+//       textAlign: 'center',
+//       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+//       minHeight: '100vh',
+//       color: 'white'
+//     }}>
+//       <h1>Login Page</h1>
+//       <p>This is a temporary login page</p>
+//       <Link to="/" style={{ color: 'white', textDecoration: 'underline' }}>
+//         ← Back to Home
+//       </Link>
+//     </div>
+//   );
+// }
+
+// export default Login;

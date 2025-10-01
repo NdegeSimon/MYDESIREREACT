@@ -835,3 +835,248 @@ html, body, #root {
     align-items: flex-start;
   }
 }
+/* Signup Page Styles */
+.signup-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 2rem;
+  position: relative;
+}
+
+.signup-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('/images/signup-bg.jpg') center/cover;
+  opacity: 0.1;
+}
+
+.signup-form-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 3rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  z-index: 10;
+}
+
+.signup-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.signup-logo img {
+  height: 80px;
+  width: auto;
+  filter: brightness(0) invert(0);
+  margin-bottom: 1rem;
+}
+
+.signup-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 2.5rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.signup-subtitle {
+  color: #666;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+}
+
+.signup-form {
+  margin-bottom: 2rem;
+}
+
+.name-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 1rem;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #e63946;
+  box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+}
+
+.form-input.error {
+  border-color: #e63946;
+  background: #fdf2f2;
+}
+
+.error-message {
+  color: #e63946;
+  font-size: 0.8rem;
+  margin-top: 0.5rem;
+  display: block;
+  font-family: 'Montserrat', sans-serif;
+}
+
+.submit-error {
+  background: #fdf2f2;
+  border: 1px solid #e63946;
+  padding: 1rem;
+  border-radius: 10px;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.form-options {
+  margin-bottom: 2rem;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 0.9rem;
+}
+
+.terms-agreement {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  color: #666;
+  line-height: 1.4;
+}
+
+.terms-agreement input {
+  margin-right: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.terms-link {
+  color: #e63946;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.terms-link:hover {
+  color: #b71c1c;
+  text-decoration: underline;
+}
+
+.signup-button {
+  width: 100%;
+  background: #e63946;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+}
+
+.signup-button:hover:not(:disabled) {
+  background: #b71c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+}
+
+.signup-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid transparent;
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.login-link {
+  text-align: center;
+  font-family: 'Montserrat', sans-serif;
+  color: #666;
+}
+
+.login-text {
+  color: #e63946;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.login-text:hover {
+  color: #b71c1c;
+  text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .signup-container {
+    padding: 1rem;
+  }
+  
+  .signup-form-container {
+    padding: 2rem;
+  }
+  
+  .signup-title {
+    font-size: 2rem;
+  }
+  
+  .name-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .signup-form-container {
+    padding: 1.5rem;
+  }
+  
+  .terms-agreement {
+    font-size: 0.8rem;
+  }
+}

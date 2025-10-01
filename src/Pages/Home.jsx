@@ -83,7 +83,7 @@ function Home() {
             <Link to="/signup">
               <button className="btn glow-red">SIGN UP</button>
             </Link>
-            <Link to="/login">
+            <Link to="/Login">
               <button className="btn glow-red">LOG IN</button>
             </Link>
           </div>
@@ -163,3 +163,4 @@ function Home() {
 }
 
 export default Home;
+
