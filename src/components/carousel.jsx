@@ -1,46 +1,74 @@
-import { useEffect, useState } from "react";
-import "../index.css";
-import "../App.css";
+import { useState, useEffect } from "react";
 
 function Carousel({ slides, interval = 5000 }) {
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    if (slides.length === 0) return;
-    
-    const autoSlide = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    if (slides.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) =>
+        prevIndex === slides.length - 1 ? 0 : prevIndex + 1
+      );
     }, interval);
 
-    return () => clearInterval(autoSlide);
+    return () => clearInterval(timer);
   }, [slides.length, interval]);
 
-  // If no slides, return nothing
   if (!slides || slides.length === 0) {
     return <div>No slides available</div>;
   }
 
+  const currentSlide = slides[currentIndex];
+
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      {slides.map((slide, index) => (
-        <div 
-          key={index} 
-          className={`absolute top-0 left-0 w-full h-full transition-opacity duration-1000 ${
-            index === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <img 
-            src={slide.img} 
-            alt={`Slide ${index + 1}`} 
-            className="w-full h-full object-cover"
+    <div className="carousel-container">
+      <div className="carousel-slide">
+        {currentSlide.img && (
+          <img
+            src={currentSlide.img}
+            alt="Slide"
+            className="carousel-image"
+            onError={(e) => {
+              e.target.style.display = 'none';
+            }}
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-            <div className="text-center">
-              {slide.heading}
-            </div>
-          </div>
+        )}
+        <div className="overlay"></div>
+      </div>
+
+      {/* Navigation Arrows */}
+      {slides.length > 1 && (
+        <>
+          <button
+            onClick={() => setCurrentIndex(currentIndex === 0 ? slides.length - 1 : currentIndex - 1)}
+            className="carousel-nav-button carousel-prev"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => setCurrentIndex(currentIndex === slides.length - 1 ? 0 : currentIndex + 1)}
+            className="carousel-nav-button carousel-next"
+          >
+            ›
+          </button>
+        </>
+      )}
+
+      {/* Slide Indicators */}
+      {slides.length > 1 && (
+        <div className="carousel-indicators">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentIndex(index)}
+              className={`carousel-indicator ${
+                index === currentIndex ? "active" : ""
+              }`}
+            />
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
