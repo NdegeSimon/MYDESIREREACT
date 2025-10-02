@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import "../index.css";
+import ApiService from "./utils/api"; // Fixed path - lowercase 'utils'
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -57,21 +58,23 @@ function Login() {
 
     setIsLoading(true);
     
-    // Simulate API call
     try {
-      // Replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Use the API service for login
+      const response = await ApiService.login({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      console.log("Login successful:", response);
       
-      console.log("Login data:", formData);
-      // Here you would typically:
-      // 1. Send login request to your backend
-      // 2. Handle the response
-      // 3. Store the token/user data
-      // 4. Redirect to dashboard or home page
+      // If login is successful, redirect to home
+      navigate("/");
       
-      navigate("/"); // Redirect to home after successful login
     } catch (error) {
-      setErrors({ submit: "Login failed. Please try again." });
+      console.error("Login error:", error);
+      setErrors({ 
+        submit: error.message || "Login failed. Please try again." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -87,9 +90,20 @@ function Login() {
         <div className="login-header">
           <Link to="/" className="login-logo">
             <img 
-              src="/assets/lg.png" 
+              src="/images/lg.png"  // Fixed path - should be in public/images/
               alt="My Desire Salon" 
               className="logo-image"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                // Fallback text if image fails to load
+                const fallback = document.createElement('div');
+                fallback.textContent = 'MY DESIRE SALON';
+                fallback.style.color = '#333';
+                fallback.style.fontFamily = "'Playfair Display', serif";
+                fallback.style.fontSize = '1.5rem';
+                fallback.style.fontWeight = 'bold';
+                e.target.parentNode.appendChild(fallback);
+              }}
             />
           </Link>
           <h1 className="login-title">Welcome Back</h1>
@@ -167,8 +181,8 @@ function Login() {
           </button>
         </form>
 
-        {/* Social Login */}
-        <div className="social-login">
+        {/* Social Login - Temporarily commented until implemented */}
+        {/* <div className="social-login">
           <div className="divider">
             <span>Or continue with</span>
           </div>
@@ -183,7 +197,7 @@ function Login() {
               Facebook
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Sign Up Link */}
         <div className="signup-link">
@@ -198,26 +212,3 @@ function Login() {
 }
 
 export default Login;
-// Pages/Login.jsx
-// import React from "react";
-// import { Link } from "react-router-dom";
-
-// function Login() {
-//   return (
-//     <div style={{ 
-//       padding: '50px', 
-//       textAlign: 'center',
-//       background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-//       minHeight: '100vh',
-//       color: 'white'
-//     }}>
-//       <h1>Login Page</h1>
-//       <p>This is a temporary login page</p>
-//       <Link to="/" style={{ color: 'white', textDecoration: 'underline' }}>
-//         ← Back to Home
-//       </Link>
-//     </div>
-//   );
-// }
-
-// export default Login;

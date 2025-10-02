@@ -1,14 +1,14 @@
 // App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from '/context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import AdminRoute from './components/AdminRoute';
-import Login from './components/Login';
-import Signup from './components/Signup';
-import ClientDashboard from './components/ClientDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import Home from './components/Home';
+import AdminRoute from "./components/AdminRoute";
+import Login from './Pages/Login';
+import Signup from './Pages/Signup';
+import UserDashboard from "./Pages/UserDashboard";
+import AdminDashboard from './Pages/AdminDashboard';
+import Home from './Pages/Home';
 import './App.css';
 
 function App() {
@@ -24,7 +24,7 @@ function App() {
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <ClientDashboard />
+                  <UserDashboard />
                 </ProtectedRoute>
               } 
             />

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import "../index.css";
+import ApiService from "./utils/api";
 
 function Signup() {
   const [formData, setFormData] = useState({
@@ -79,19 +80,28 @@ function Signup() {
 
     setIsLoading(true);
     
-    // Simulate API call
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log("Signup data:", formData);
+      // Use the API service for signup
+      const response = await ApiService.signup({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+      });
+
+      console.log("Signup successful:", response);
       
-      // Here you would typically:
-      // 1. Send signup request to your backend
-      // 2. Handle the response
-      // 3. Auto-login or redirect to login
+      // You might want to automatically log the user in or redirect to login
+      navigate("/login", { 
+        state: { message: "Account created successfully! Please log in." } 
+      });
       
-      navigate("/"); // Redirect to home after successful signup
     } catch (error) {
-      setErrors({ submit: "Signup failed. Please try again." });
+      console.error("Signup error:", error);
+      setErrors({ 
+        submit: error.message || "Signup failed. Please try again." 
+      });
     } finally {
       setIsLoading(false);
     }

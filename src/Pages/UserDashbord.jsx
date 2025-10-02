@@ -1,10 +1,10 @@
 import "../index.css";
-// components/ClientDashboard.jsx
+// components/UserDashboard.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const ClientDashboard = () => {
+const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState('appointments');
   const [userData, setUserData] = useState(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
@@ -181,8 +181,8 @@ const ClientDashboard = () => {
           fetchNotifications()
         ]);
       } catch (err) {
-        console.error('Error loading dashboard data:', err);
-        setError('Failed to load dashboard data');
+        console.error('Error loading UserDashboard data:', err);
+        setError('Failed to load UserDashboard data');
       } finally {
         setLoading(false);
       }
@@ -193,19 +193,19 @@ const ClientDashboard = () => {
 
   if (loading) {
     return (
-      <div className="client-dashboard red-black-theme">
+      <div className="user-dashboard red-black-theme">
         <div className="loading-spinner">
           <div className="spinner"></div>
-          <p>Loading your dashboard...</p>
+          <p>Loading your UserDashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="client-dashboard red-black-theme">
+    <div className="user-dashboard red-black-theme">
       {/* Sidebar */}
-      <div className="client-sidebar">
+      <div className="user-sidebar">
         <div className="sidebar-header">
           <div className="user-profile">
             <div className="avatar red-gradient">
@@ -262,8 +262,8 @@ const ClientDashboard = () => {
       </div>
 
       {/* Main Content */}
-      <div className="client-main">
-        <header className="client-header red-border-bottom">
+      <div className="user-main">
+        <header className="user-header red-border-bottom">
           <h1 className="red-text">
             {activeTab === 'appointments' && 'My Appointments'}
             {activeTab === 'book' && 'Book New Appointment'}
@@ -678,4 +678,4 @@ const NotificationsTab = ({ notifications, onMarkAsRead }) => {
   );
 };
 
-export default ClientDashboard;
+export default UserDashboard;
