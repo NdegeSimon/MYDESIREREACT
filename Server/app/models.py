@@ -150,23 +150,23 @@ class Appointment(db.Model):
             'staff': self.staff.to_dict() if self.staff else None
         }
 class Booking(db.Model):
+    __tablename__ = 'bookings'
+    
     id = db.Column(db.Integer, primary_key=True)
-    staff_id = db.Column(db.Integer, nullable=False)
-    staff_name = db.Column(db.String(100), nullable=False)
-    service = db.Column(db.String(100), nullable=False)
-    date = db.Column(db.String(50), nullable=False)
-    time = db.Column(db.String(50), nullable=False)
-    customer = db.Column(db.String(100), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    appointment_id = db.Column(db.Integer, db.ForeignKey('appointments.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(20), default='pending')  # pending, confirmed, cancelled
+
+    # Relationships
+    user = db.relationship('User', backref='bookings', lazy=True)
+    appointment = db.relationship('Appointment', backref='bookings', lazy=True)
 
     def to_dict(self):
         return {
             "id": self.id,
-            "staffId": self.staff_id,
-            "staffName": self.staff_name,
-            "service": self.service,
-            "date": self.date,
-            "time": self.time,
-            "customer": self.customer,
-            "createdAt": self.created_at.isoformat()
+            "user": self.user.to_dict() if self.user else None,
+            "appointment": self.appointment.to_dict() if self.appointment else None,
+            "status": self.status,
+            "createdAt": self.created_at.isoformat() if self.created_at else None
         }
