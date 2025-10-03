@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import "../index.css";
-import ApiService from "./utils/api";
+// import ApiService from "./utils/api";
 
 function Signup() {
   const [formData, setFormData] = useState({
