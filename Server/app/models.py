@@ -149,3 +149,24 @@ class Appointment(db.Model):
             'service': self.service.to_dict() if self.service else None,
             'staff': self.staff.to_dict() if self.staff else None
         }
+class Booking(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    staff_id = db.Column(db.Integer, nullable=False)
+    staff_name = db.Column(db.String(100), nullable=False)
+    service = db.Column(db.String(100), nullable=False)
+    date = db.Column(db.String(50), nullable=False)
+    time = db.Column(db.String(50), nullable=False)
+    customer = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "staffId": self.staff_id,
+            "staffName": self.staff_name,
+            "service": self.service,
+            "date": self.date,
+            "time": self.time,
+            "customer": self.customer,
+            "createdAt": self.created_at.isoformat()
+        }
