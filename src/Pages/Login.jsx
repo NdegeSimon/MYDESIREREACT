@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
 import "../index.css";
-// import ApiService from "./utils/api"; // Fixed path - lowercase 'utils'
+import ApiService from "../api.js";
+
 
 function Login() {
   const [formData, setFormData] = useState({
@@ -67,13 +68,19 @@ function Login() {
 
       console.log("Login successful:", response);
       
-      // If login is successful, redirect to home
-      navigate("/");
+      // Check user role and redirect accordingly
+      if (response.user && response.user.role === 'admin') {
+        // Redirect to admin dashboard for admin users
+        navigate("/admin");
+      } else {
+        // Redirect to user dashboard for regular users
+        navigate("/userdashboard");
+      }
       
     } catch (error) {
       console.error("Login error:", error);
       setErrors({ 
-        submit: error.message || "Login failed. Please try again." 
+        submit: error.response?.data?.message || error.message || "Login failed. Please try again." 
       });
     } finally {
       setIsLoading(false);
@@ -90,7 +97,7 @@ function Login() {
         <div className="login-header">
           <Link to="/" className="login-logo">
             <img 
-              src="/images/lg.png"  // Fixed path - should be in public/images/
+              src="/images/lg.png"
               alt="My Desire Salon" 
               className="logo-image"
               onError={(e) => {
@@ -181,23 +188,16 @@ function Login() {
           </button>
         </form>
 
-        {/* Social Login - Temporarily commented until implemented */}
-        {/* <div className="social-login">
-          <div className="divider">
-            <span>Or continue with</span>
+        {/* Test Accounts Info */}
+        <div className="test-accounts-info">
+          <h4>Test Accounts:</h4>
+          <div className="test-account">
+            <strong>Admin:</strong> admin@salon.com / password123
           </div>
-          
-          <div className="social-buttons">
-            <button type="button" className="social-button google">
-              <img src="/images/google-icon.svg" alt="Google" />
-              Google
-            </button>
-            <button type="button" className="social-button facebook">
-              <img src="/images/facebook-icon.svg" alt="Facebook" />
-              Facebook
-            </button>
+          <div className="test-account">
+            <strong>User:</strong> sarah@email.com / password123
           </div>
-        </div> */}
+        </div>
 
         {/* Sign Up Link */}
         <div className="signup-link">

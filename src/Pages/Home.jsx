@@ -4,6 +4,8 @@ import Navbar from "../components/Navbar";
 import Carousel from "../components/carousel";
 import "../App.css";
 import "../index.css";
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '/context/AuthContext'; // Fixed import path
 import { Link } from "react-router-dom";
 import {
   FaFacebookF,
@@ -17,6 +19,8 @@ import p3Image from "../assets/p3.jpg";
 
 function Home() {
   const [currentOffer, setCurrentOffer] = useState(0);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   const slides = [
     { img: p2Image },
@@ -63,6 +67,16 @@ function Home() {
     setCurrentOffer(index);
   };
 
+  const handleBookNow = () => {
+    if (user) {
+      // User is logged in, navigate to booking page
+      navigate('/bookappointments');
+    } else {
+      // User is not logged in, redirect to login
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="home-container">
       <Carousel slides={slides} interval={5000} />
@@ -97,9 +111,12 @@ function Home() {
           </div>
 
           <div className="left-button-container">
-            <Link to="/book">
-              <button className="book-now-button glow-red">BOOK NOW</button>
-            </Link>
+            <button 
+              className="book-now-button glow-red" 
+              onClick={handleBookNow}
+            >
+              BOOK NOW
+            </button>
           </div>
 
           <div className="social-icons-overlay">
@@ -163,4 +180,3 @@ function Home() {
 }
 
 export default Home;
-

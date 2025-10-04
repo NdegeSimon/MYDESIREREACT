@@ -1,5 +1,4 @@
 import "../index.css";
-// components/UserDashboard.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -17,7 +16,7 @@ const UserDashboard = () => {
   const [error, setError] = useState('');
   
   const navigate = useNavigate();
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
   // Get auth token from localStorage
   const getAuthToken = () => {
@@ -26,7 +25,7 @@ const UserDashboard = () => {
 
   // API client with auth header
   const apiClient = axios.create({
-    baseURL: API_BASE,
+    baseURL: apiUrl,
     headers: {
       'Authorization': `Bearer ${getAuthToken()}`,
       'Content-Type': 'application/json'
