@@ -1,94 +1,75 @@
 // App.jsx
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from '../context/AuthContext'; // Uncommented and fixed path
-import Login from './Pages/Login';
-import Signup from './Pages/Signup';
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import Login from "./Pages/Login";
+import Signup from "./Pages/Signup";
 import UserDashboard from "./Pages/UserDashboard";
-import AdminDashboard from './Pages/AdminDashboard';
-import Home from './Pages/Home';
-import Footer from './components/Footer'
-import './App.css';
+import AdminDashboard from "./Pages/AdminDashboard";
+import Home from "./Pages/Home";
+import Profile from "./Pages/Profile";
+import Footer from "./components/Footer";
+import "./App.css";
 
-// Remove these duplicate definitions since you're importing them
-// const ProtectedRoute = ({ children }) => {
-//   const { user, loading } = useAuth();
-  
-//   if (loading) {
-//     return <div>Loading...</div>;
-//   }
-  
-//   return user ? children : <Navigate to="/login" />;
-// };
-
-// const AdminRoute = ({ children }) => {
-//   const { user, loading } = useAuth();
-  
-//   if (loading) {
-//     return <div>Loading...</div>;
-//   }
-  
-//   return user && user.role === 'admin' ? children : <Navigate to="/" />;
-// };
-
-// If you want to define them here instead of importing, use these:
+/* ========== Route Protection ========== */
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  
+
+  if (loading) return <div>Loading...</div>;
   return user ? children : <Navigate to="/login" />;
 };
 
 const AdminRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-  
-  return user && user.role === 'admin' ? children : <Navigate to="/" />;
+
+  if (loading) return <div>Loading...</div>;
+  return user && user.role === "admin" ? children : <Navigate to="/" />;
 };
 
+/* ========== Main App ========== */
 function App() {
   return (
     <AuthProvider>
       <Router>
         <div className="App">
-          {/* Add Header component if you have one, or remove */}
-          {/* <Header /> */}
           <main>
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} /> {/* Fixed: Signup vs Register */}
-              <Route path="/userdashboard" element={<UserDashboard />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              {/* Protected Routes */}
-              <Route 
-                path="/userdashboard" 
+              <Route path="/signup" element={<Signup />} />
+
+              {/* Protected user routes */}
+              <Route
+                path="/userdashboard"
                 element={
                   <ProtectedRoute>
-                    <UserDashboard /> {/* Fixed: UserDashboard vs Dashboard */}
+                    <UserDashboard />
                   </ProtectedRoute>
-                } 
+                }
               />
-              
-              {/* Admin Routes */}
-              <Route 
-                path="/admin" 
+
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Admin routes */}
+              <Route
+                path="/admin"
                 element={
                   <AdminRoute>
                     <AdminDashboard />
                   </AdminRoute>
-                } 
+                }
               />
             </Routes>
           </main>
-         
-           <Footer /> 
+
+          <Footer />
         </div>
       </Router>
     </AuthProvider>
