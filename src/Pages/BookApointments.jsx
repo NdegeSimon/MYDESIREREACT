@@ -1,26 +1,14 @@
 import React, { useState } from "react";
-
-// Components (all inside src/components/)
-import Header from "../components/Header";
-import Services from "../components/Services";
-import Calendar from "../components/calendar";      // lowercase file name
-   // File doesn’t exist yet?
-import CustomerForm from "../components/customerform"; // lowercase file name
-import BookingSummary from "../components/Bookingsummary"; // lowercase b
-
+import { useAuth } from "../../context/AuthContext";
 
 function BookingPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
-  const [customerInfo, setCustomerInfo] = useState({
-    name: "",
-    email: "",
-    phone: "",
-  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const { user } = useAuth();
 
   const timeSlots = [
     "10:00 AM",
@@ -30,6 +18,20 @@ function BookingPage() {
     "2:00 PM",
     "3:00 PM",
     "4:00 PM",
+  ];
+
+  // Mock staff data - replace with actual data from your backend
+  const staffMembers = [
+    { id: 1, name: "John Doe", specialty: "Hair Stylist" },
+    { id: 2, name: "Jane Smith", specialty: "Color Specialist" },
+    { id: 3, name: "Mike Johnson", specialty: "Barber" }
+  ];
+
+  // Mock services data - replace with actual data from your backend
+  const services = [
+    { id: 1, name: "Haircut", price: 30, duration: "30 min" },
+    { id: 2, name: "Hair Coloring", price: 80, duration: "2 hours" },
+    { id: 3, name: "Hair Styling", price: 25, duration: "45 min" }
   ];
 
   // Submit booking to backend
@@ -45,16 +47,25 @@ function BookingPage() {
     const bookingData = {
       staffId: selectedStaff.id,
       staffName: selectedStaff.name,
-      service: selectedService,
+      service: selectedService.name,
       date: selectedDate,
       time: selectedTime,
-      customer: customerInfo,
+      customer: {
+        name: user?.firstName + ' ' + user?.lastName,
+        email: user?.email,
+        phone: user?.phone,
+        userId: user?.id
+      }
     };
 
     try {
+      const token = localStorage.getItem('authToken');
       const response = await fetch("http://localhost:8000/bookings/", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(bookingData),
       });
 
@@ -65,7 +76,6 @@ function BookingPage() {
         setSelectedService(null);
         setSelectedDate(null);
         setSelectedTime(null);
-        setCustomerInfo({ name: "", email: "", phone: "" });
       } else {
         setMessage("❌ Failed to confirm booking. Try again.");
       }
@@ -78,63 +88,124 @@ function BookingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      <Header />
+    <div className="booking-page">
+      <h1 className="booking-title">Book Your Appointment</h1>
 
-      <main className="flex-1 container mx-auto px-6 py-8">
-        <h1 className="text-3xl font-bold text-pink-400 text-center mb-10">
-          Book Your Appointment
-        </h1>
-
-        <section className="mb-12">
-          <StaffSelection selectedStaff={selectedStaff} onSelect={setSelectedStaff} />
+      <div className="booking-sections">
+        {/* Staff Selection Section */}
+        <section className="booking-section">
+          <h2 className="section-title">Select Staff</h2>
+          <div className="staff-grid">
+            {staffMembers.map(staff => (
+              <div 
+                key={staff.id}
+                className={`staff-card ${selectedStaff?.id === staff.id ? 'selected' : ''}`}
+                onClick={() => setSelectedStaff(staff)}
+              >
+                <div className="staff-avatar">
+                  {staff.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                <div className="staff-info">
+                  <h3>{staff.name}</h3>
+                  <p>{staff.specialty}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className="mb-12">
-          <Services selectedService={selectedService} onSelect={setSelectedService} />
+        {/* Services Selection Section */}
+        <section className="booking-section">
+          <h2 className="section-title">Select Service</h2>
+          <div className="services-grid">
+            {services.map(service => (
+              <div 
+                key={service.id}
+                className={`service-card ${selectedService?.id === service.id ? 'selected' : ''}`}
+                onClick={() => setSelectedService(service)}
+              >
+                <h3>{service.name}</h3>
+                <p className="service-duration">{service.duration}</p>
+                <p className="service-price">${service.price}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
-        <section className="mb-12">
-          <Calendar selectedDate={selectedDate} onSelect={setSelectedDate} />
+        {/* Date Selection Section */}
+        <section className="booking-section">
+          <h2 className="section-title">Select Date</h2>
+          <div className="calendar">
+            <input 
+              type="date" 
+              className="date-input"
+              value={selectedDate || ''}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+            />
+          </div>
         </section>
 
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold mb-4">Choose a Time</h2>
-          <TimeSlots timeSlots={timeSlots} selectedTime={selectedTime} onSelect={setSelectedTime} />
+        {/* Time Selection Section */}
+        <section className="booking-section">
+          <h2 className="section-title">Choose a Time</h2>
+          <div className="time-slots-grid">
+            {timeSlots.map(slot => (
+              <button
+                key={slot}
+                className={`time-slot ${selectedTime === slot ? 'selected' : ''}`}
+                onClick={() => setSelectedTime(slot)}
+              >
+                {slot}
+              </button>
+            ))}
+          </div>
         </section>
 
-        <section className="mb-12">
-          <CustomerForm customerInfo={customerInfo} onChange={setCustomerInfo} />
-        </section>
-
-        <section className="mb-12">
-          <BookingSummary
-            staff={selectedStaff}
-            service={selectedService}
-            date={selectedDate}
-            time={selectedTime}
-            customer={customerInfo}
-          />
+        {/* Booking Summary Section */}
+        <section className="booking-section">
+          <h2 className="section-title">Booking Summary</h2>
+          <div className="booking-summary">
+            {selectedStaff && (
+              <div className="summary-item">
+                <strong>Staff:</strong> {selectedStaff.name}
+              </div>
+            )}
+            {selectedService && (
+              <div className="summary-item">
+                <strong>Service:</strong> {selectedService.name} - ${selectedService.price}
+              </div>
+            )}
+            {selectedDate && (
+              <div className="summary-item">
+                <strong>Date:</strong> {selectedDate}
+              </div>
+            )}
+            {selectedTime && (
+              <div className="summary-item">
+                <strong>Time:</strong> {selectedTime}
+              </div>
+            )}
+            {selectedService && (
+              <div className="summary-total">
+                <strong>Total: ${selectedService.price}</strong>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Submit Button */}
-        <div className="text-center">
+        <div className="booking-actions">
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="px-8 py-3 bg-pink-500 hover:bg-pink-600 rounded-lg font-bold text-lg transition disabled:opacity-50"
+            className="book-button"
           >
             {loading ? "Submitting..." : "Confirm Booking"}
           </button>
-          {message && <p className="mt-4 text-sm">{message}</p>}
+          {message && <p className="booking-message">{message}</p>}
         </div>
-      </main>
-
-      <Sidebar />
-
-      <footer className="text-center py-6 text-gray-400 text-sm border-t border-gray-700">
-        © 2025 My Desire Salon. All rights reserved.
-      </footer>
+      </div>
     </div>
   );
 }

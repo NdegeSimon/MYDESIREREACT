@@ -16,6 +16,7 @@ import {
 import { FaTiktok } from "react-icons/fa6";
 import p2Image from "../assets/p2.jpg";
 import p3Image from "../assets/p3.jpg";
+import lg from "../assets/lg.png";
 
 function Home() {
   const [currentOffer, setCurrentOffer] = useState(0);
@@ -86,7 +87,7 @@ function Home() {
           <div className="navbar-logo">
             <Link to="/">
               <img
-                src="/images/lg.png"
+                src={lg}
                 alt="My Desire Salon Logo"
                 className="logo-image"
               />

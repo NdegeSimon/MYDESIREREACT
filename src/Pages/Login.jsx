@@ -1,58 +1,69 @@
-// Pages/Login.jsx
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import "../App.css";
 import "../index.css";
-import ApiService from "../api.js";
-
 
 function Login() {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: ""
-  });
+  const [formData, setFormData] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
+  const { login } = useAuth();
+  
+  // ✅ Get the location state for success message and pre-filled email
+  const location = useLocation();
+  const successMessageFromSignup = location.state?.message;
+  const preFilledEmail = location.state?.email;
+
+  // ✅ Set success message and pre-filled email when component mounts
+  useEffect(() => {
+    if (successMessageFromSignup) {
+      setSuccessMessage(successMessageFromSignup);
+      // Clear the location state so message doesn't show again on refresh
+      window.history.replaceState({}, document.title);
+    }
+    
+    if (preFilledEmail) {
+      setFormData(prev => ({ ...prev, email: preFilledEmail }));
+    }
+  }, [successMessageFromSignup, preFilledEmail]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear errors when user starts typing
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ""
-      }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    
+    // Clear success message when user starts typing
+    if (successMessage) {
+      setSuccessMessage("");
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!formData.email) {
       newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Email is invalid";
     }
-
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
-
     return newErrors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = validateForm();
-    
-    if (Object.keys(newErrors).length > 0) {
+    if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
     }
@@ -60,28 +71,23 @@ function Login() {
     setIsLoading(true);
     
     try {
-      // Use the API service for login
-      const response = await ApiService.login({
-        email: formData.email,
-        password: formData.password,
-      });
-
-      console.log("Login successful:", response);
+      const result = await login(formData);
       
-      // Check user role and redirect accordingly
-      if (response.user && response.user.role === 'admin') {
-        // Redirect to admin dashboard for admin users
-        navigate("/admin");
+      if (result.success) {
+        console.log("Login successful:", result.data);
+        
+        // Redirect based on user role
+        if (result.data.user.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/userdashboard");
+        }
       } else {
-        // Redirect to user dashboard for regular users
-        navigate("/userdashboard");
+        setErrors({ submit: result.error });
       }
-      
     } catch (error) {
       console.error("Login error:", error);
-      setErrors({ 
-        submit: error.response?.data?.message || error.message || "Login failed. Please try again." 
-      });
+      setErrors({ submit: "Login failed. Please try again." });
     } finally {
       setIsLoading(false);
     }
@@ -119,6 +125,14 @@ function Login() {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="login-form">
+          {/* ✅ Success message from signup */}
+          {successMessage && (
+            <div className="success-message">
+              ✅ {successMessage}
+            </div>
+          )}
+
+          {/* Error message */}
           {errors.submit && (
             <div className="error-message submit-error">
               {errors.submit}
@@ -137,6 +151,7 @@ function Login() {
               onChange={handleChange}
               className={`form-input ${errors.email ? 'error' : ''}`}
               placeholder="Enter your email"
+              disabled={isLoading}
             />
             {errors.email && (
               <span className="error-message">{errors.email}</span>
@@ -155,6 +170,7 @@ function Login() {
               onChange={handleChange}
               className={`form-input ${errors.password ? 'error' : ''}`}
               placeholder="Enter your password"
+              disabled={isLoading}
             />
             {errors.password && (
               <span className="error-message">{errors.password}</span>
@@ -163,7 +179,7 @@ function Login() {
 
           <div className="form-options">
             <label className="remember-me">
-              <input type="checkbox" />
+              <input type="checkbox" disabled={isLoading} />
               <span className="checkmark"></span>
               Remember me
             </label>
