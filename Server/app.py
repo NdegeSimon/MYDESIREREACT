@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_migrate import Migrate
-from models import db, User, Service, Staff, Appointment  # import your models
+from flask_bcrypt import Bcrypt
+from models import db, User, Service, Staff, Appointment,StaffAvailability  # import your models
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, JWTManager
 from datetime import datetime
-
+from flask_sqlalchemy import SQLAlchemy
 app = Flask(__name__)
 CORS(app)
 
@@ -16,9 +17,11 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config["JWT_SECRET_KEY"] = "your-super-secret-jwt-key-change-this-in-production"
 
 # Initialize extensions
-db.init_app(app)
+bcrypt = Bcrypt(app)
+db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 jwt = JWTManager(app)
+
 
 # Routes 
 
@@ -105,13 +108,23 @@ def auth_signup():
 def auth_login():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'message': 'No data provided'}), 400
+
         email = data.get('email')
         password = data.get('password')
         
+        if not email or not password:
+            return jsonify({'message': 'Email and password are required'}), 400
+
         # Find user
         user = User.query.filter_by(email=email, is_active=True).first()
         
-        if not user or not user.check_password(password):
+        if not user:
+            return jsonify({'message': 'Invalid email or password'}), 401
+        
+        # Check password
+        if not user.check_password(password):
             return jsonify({'message': 'Invalid email or password'}), 401
         
         # Create access token
@@ -124,6 +137,7 @@ def auth_login():
         }), 200
         
     except Exception as e:
+        print(f"Login error: {str(e)}")
         return jsonify({'message': 'Error during login', 'error': str(e)}), 500
 
 @app.route('/api/auth/me', methods=['GET'])
@@ -449,11 +463,495 @@ def admin_dashboard_stats():
         
     except Exception as e:
         return jsonify({'message': 'Error fetching dashboard stats', 'error': str(e)}), 500
+# ===== ADMIN SERVICE MANAGEMENT =====
+@app.route('/api/admin/services', methods=['POST'])
+@jwt_required()
+def admin_add_service():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('price'):
+            return jsonify({'message': 'Name and price are required'}), 400
+
+        # Check if service already exists
+        existing_service = Service.query.filter_by(name=data['name']).first()
+        if existing_service:
+            return jsonify({'message': 'Service with this name already exists'}), 400
+
+        new_service = Service(
+            name=data['name'],
+            description=data.get('description', ''),
+            price=float(data['price']),
+            duration=data.get('duration', 60),  # Default 60 minutes
+            category=data.get('category', 'general'),
+            is_active=True
+        )
+        
+        db.session.add(new_service)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Service created successfully',
+            'service': new_service.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error creating service', 'error': str(e)}), 500
+
+@app.route('/api/admin/services/<int:service_id>', methods=['PUT'])
+@jwt_required()
+def admin_update_service(service_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        service = Service.query.get(service_id)
+        if not service:
+            return jsonify({'message': 'Service not found'}), 404
+
+        data = request.get_json()
+        
+        # Update fields if provided
+        if 'name' in data:
+            # Check if name is taken by another service
+            existing = Service.query.filter(
+                Service.name == data['name'],
+                Service.id != service_id
+            ).first()
+            if existing:
+                return jsonify({'message': 'Service name already taken'}), 400
+            service.name = data['name']
+        
+        if 'description' in data:
+            service.description = data['description']
+        
+        if 'price' in data:
+            service.price = float(data['price'])
+        
+        if 'duration' in data:
+            service.duration = data['duration']
+        
+        if 'category' in data:
+            service.category = data['category']
+        
+        if 'is_active' in data:
+            service.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Service updated successfully',
+            'service': service.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating service', 'error': str(e)}), 500
+
+@app.route('/api/admin/services/<int:service_id>', methods=['DELETE'])
+@jwt_required()
+def admin_delete_service(service_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        service = Service.query.get(service_id)
+        if not service:
+            return jsonify({'message': 'Service not found'}), 404
+
+        # Soft delete by marking as inactive
+        service.is_active = False
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Service deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error deleting service', 'error': str(e)}), 500
+
+@app.route('/api/admin/services', methods=['GET'])
+@jwt_required()
+def admin_get_all_services():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        # Get all services (including inactive ones for admin)
+        services = Service.query.all()
+        
+        return jsonify({
+            'services': [service.to_dict() for service in services]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Error fetching services', 'error': str(e)}), 500
+
+# ===== ADMIN STAFF MANAGEMENT =====
+@app.route('/api/admin/staff', methods=['POST'])
+@jwt_required()
+def admin_add_staff():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('email'):
+            return jsonify({'message': 'Name and email are required'}), 400
+
+        # Check if staff email already exists
+        existing_staff = Staff.query.filter_by(email=data['email']).first()
+        if existing_staff:
+            return jsonify({'message': 'Staff with this email already exists'}), 400
+
+        new_staff = Staff(
+            name=data['name'],
+            email=data['email'],
+            phone=data.get('phone', ''),
+            specialty=data.get('specialty', 'hair-stylist'),
+            experience=data.get('experience', ''),
+            bio=data.get('bio', ''),
+            rating=float(data.get('rating', 0.0)),
+            image=data.get('image', '/api/placeholder/300/300'),
+            is_active=True
+        )
+        
+        db.session.add(new_staff)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Staff member created successfully',
+            'staff': new_staff.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error creating staff member', 'error': str(e)}), 500
+
+@app.route('/api/admin/staff/<int:staff_id>', methods=['PUT'])
+@jwt_required()
+def admin_update_staff(staff_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        staff = Staff.query.get(staff_id)
+        if not staff:
+            return jsonify({'message': 'Staff member not found'}), 404
+
+        data = request.get_json()
+        
+        # Update fields if provided
+        if 'name' in data:
+            staff.name = data['name']
+        
+        if 'email' in data:
+            # Check if email is taken by another staff member
+            existing = Staff.query.filter(
+                Staff.email == data['email'],
+                Staff.id != staff_id
+            ).first()
+            if existing:
+                return jsonify({'message': 'Email already taken by another staff member'}), 400
+            staff.email = data['email']
+        
+        if 'phone' in data:
+            staff.phone = data['phone']
+        
+        if 'specialty' in data:
+            staff.specialty = data['specialty']
+        
+        if 'experience' in data:
+            staff.experience = data['experience']
+        
+        if 'bio' in data:
+            staff.bio = data['bio']
+        
+        if 'rating' in data:
+            staff.rating = float(data['rating'])
+        
+        if 'image' in data:
+            staff.image = data['image']
+        
+        if 'is_active' in data:
+            staff.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Staff member updated successfully',
+            'staff': staff.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating staff member', 'error': str(e)}), 500
+
+@app.route('/api/admin/staff/<int:staff_id>', methods=['DELETE'])
+@jwt_required()
+def admin_delete_staff(staff_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        staff = Staff.query.get(staff_id)
+        if not staff:
+            return jsonify({'message': 'Staff member not found'}), 404
+
+        # Check if staff has upcoming appointments
+        upcoming_appointments = Appointment.query.filter(
+            Appointment.staff_id == staff_id,
+            Appointment.status.in_(['pending', 'confirmed']),
+            Appointment.date >= datetime.now().date()
+        ).count()
+        
+        if upcoming_appointments > 0:
+            return jsonify({
+                'message': f'Cannot delete staff with {upcoming_appointments} upcoming appointment(s). Please reassign or cancel appointments first.'
+            }), 400
+
+        # Soft delete by marking as inactive
+        staff.is_active = False
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Staff member deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error deleting staff member', 'error': str(e)}), 500
+
+@app.route('/api/admin/staff', methods=['GET'])
+@jwt_required()
+def admin_get_all_staff():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+
+        # Get all staff (including inactive ones for admin)
+        staff_members = Staff.query.all()
+        
+        return jsonify({
+            'staff': [staff.to_dict() for staff in staff_members]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Error fetching staff', 'error': str(e)}), 500
+
+# ===== ADMIN APPOINTMENT MANAGEMENT =====
+@app.route('/api/admin/appointments', methods=['GET'])
+@jwt_required()
+def admin_get_appointments():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+        
+        appointments = Appointment.query.order_by(Appointment.date.desc()).all()
+        
+        appointments_data = []
+        for appointment in appointments:
+            appointment_data = appointment.to_dict()
+            # Add customer name
+            customer = User.query.get(appointment.user_id)
+            appointment_data['customerName'] = f"{customer.first_name} {customer.last_name}"
+            
+            # Add service name
+            service = Service.query.get(appointment.service_id)
+            appointment_data['serviceName'] = service.name if service else 'Unknown Service'
+            
+            # Add staff name
+            staff = Staff.query.get(appointment.staff_id)
+            appointment_data['staffName'] = staff.name if staff else 'Unknown Staff'
+            
+            appointments_data.append(appointment_data)
+        
+        return jsonify({'appointments': appointments_data}), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Error fetching appointments', 'error': str(e)}), 500
+
+@app.route('/api/admin/appointments/<int:appointment_id>', methods=['PUT'])
+@jwt_required()
+def admin_update_appointment_status(appointment_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+        
+        appointment = Appointment.query.get(appointment_id)
+        if not appointment:
+            return jsonify({'message': 'Appointment not found'}), 404
+        
+        data = request.get_json()
+        
+        # Update status if provided
+        if 'status' in data:
+            appointment.status = data['status']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Appointment updated successfully',
+            'appointment': appointment.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating appointment', 'error': str(e)}), 500
+
+@app.route('/api/admin/appointments/<int:appointment_id>/cancel', methods=['POST'])
+@jwt_required()
+def admin_cancel_appointment(appointment_id):
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+        
+        appointment = Appointment.query.get(appointment_id)
+        if not appointment:
+            return jsonify({'message': 'Appointment not found'}), 404
+        
+        appointment.status = 'cancelled'
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Appointment cancelled successfully',
+            'appointment': appointment.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error cancelling appointment', 'error': str(e)}), 500
+
+# ===== ADMIN USER MANAGEMENT =====
+@app.route('/api/admin/users', methods=['GET'])
+@jwt_required()
+def admin_get_users():
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+        
+        users = User.query.all()
+        
+        users_data = []
+        for user in users:
+            user_data = user.to_dict()
+            # Add appointment count
+            appointment_count = Appointment.query.filter_by(user_id=user.id).count()
+            user_data['appointmentCount'] = appointment_count
+            users_data.append(user_data)
+        
+        return jsonify({'users': users_data}), 200
+        
+    except Exception as e:
+        return jsonify({'message': 'Error fetching users', 'error': str(e)}), 500
+
+@app.route('/api/admin/users/<int:user_id>', methods=['PUT'])
+@jwt_required()
+def admin_update_user(user_id):
+    try:
+        admin_id = get_jwt_identity()
+        admin_user = User.query.get(admin_id)
+        
+        if admin_user.role != 'admin':
+            return jsonify({'message': 'Admin access required'}), 403
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'message': 'User not found'}), 404
+        
+        data = request.get_json()
+        
+        # Update fields if provided
+        if 'first_name' in data:
+            user.first_name = data['first_name']
+        if 'last_name' in data:
+            user.last_name = data['last_name']
+        if 'email' in data:
+            # Check if email is taken by another user
+            existing = User.query.filter(
+                User.email == data['email'],
+                User.id != user_id
+            ).first()
+            if existing:
+                return jsonify({'message': 'Email already taken'}), 400
+            user.email = data['email']
+        if 'phone' in data:
+            user.phone = data['phone']
+        if 'role' in data:
+            user.role = data['role']
+        if 'is_active' in data:
+            user.is_active = bool(data['is_active'])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'User updated successfully',
+            'user': user.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Error updating user', 'error': str(e)}), 500    
+    
+    
+app.route('/api/payments/initiate', methods=['POST'])
+@jwt_required()
+def initiate_payment():
+    data = request.get_json()
+    phone = data['phone']
+    amount = data['amount']
+    # Call Safaricom Daraja STK Push here
+    return jsonify({'message': 'Payment initiated'})
 
 # ===== HEALTH CHECK =====
 @app.route('/api/health', methods=['GET'])
 def api_health_check():
     return jsonify({'status': 'healthy', 'message': 'Salon Booking API is running!'})
+
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

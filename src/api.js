@@ -101,8 +101,8 @@ class ApiService {
   async updateProfile(profileData) {
     const response = await this.client.put("/users/profile", profileData);
     // Update localStorage with new user data
-    if (response.data) {
-      localStorage.setItem("userData", JSON.stringify(response.data));
+    if (response.data.user) {
+      localStorage.setItem("userData", JSON.stringify(response.data.user));
     }
     return response.data;
   }
@@ -112,18 +112,10 @@ class ApiService {
   // =============================
 
   /**
-   * Get all appointments (admin)
+   * Get all appointments (user gets their own, admin gets all)
    */
   async getAppointments() {
     const response = await this.client.get("/appointments");
-    return response.data;
-  }
-
-  /**
-   * Get user's appointments
-   */
-  async getMyAppointments() {
-    const response = await this.client.get("/appointments/my-appointments");
     return response.data;
   }
 
@@ -138,19 +130,10 @@ class ApiService {
 
   /**
    * Create new appointment
-   * @param {Object} appointmentData { serviceId, staffId, date, time }
+   * @param {Object} appointmentData { serviceId, staffId, date, time, notes }
    */
   async createAppointment(appointmentData) {
     const response = await this.client.post("/appointments", appointmentData);
-    return response.data;
-  }
-
-  /**
-   * Book appointment (user)
-   * @param {Object} appointmentData { serviceId, staffId, date, time }
-   */
-  async bookAppointment(appointmentData) {
-    const response = await this.client.post("/appointments/book", appointmentData);
     return response.data;
   }
 
@@ -170,15 +153,6 @@ class ApiService {
    */
   async cancelAppointment(id) {
     const response = await this.client.delete(`/appointments/${id}`);
-    return response.data;
-  }
-
-  /**
-   * Cancel user's appointment
-   * @param {string} id Appointment ID
-   */
-  async cancelMyAppointment(id) {
-    const response = await this.client.put(`/appointments/${id}/cancel`);
     return response.data;
   }
 
@@ -232,53 +206,16 @@ class ApiService {
    * Get user's payment history
    */
   async getMyPayments() {
-    const response = await this.client.get("/payments/my-payments");
+    const response = await this.client.get("/user/payments");
     return response.data;
   }
 
   /**
-   * Get all payments (admin)
+   * Initiate payment
+   * @param {Object} paymentData { phone, amount }
    */
-  async getPayments() {
-    const response = await this.client.get("/payments");
-    return response.data;
-  }
-
-  /**
-   * Create payment
-   * @param {Object} paymentData { appointmentId, amount, paymentMethod }
-   */
-  async createPayment(paymentData) {
-    const response = await this.client.post("/payments", paymentData);
-    return response.data;
-  }
-
-  // =============================
-  // 🔔 NOTIFICATION ENDPOINTS
-  // =============================
-
-  /**
-   * Get user's notifications
-   */
-  async getMyNotifications() {
-    const response = await this.client.get("/notifications");
-    return response.data;
-  }
-
-  /**
-   * Mark notification as read
-   * @param {string} id Notification ID
-   */
-  async markNotificationAsRead(id) {
-    const response = await this.client.put(`/notifications/${id}/read`);
-    return response.data;
-  }
-
-  /**
-   * Mark all notifications as read
-   */
-  async markAllNotificationsAsRead() {
-    const response = await this.client.put("/notifications/read-all");
+  async initiatePayment(paymentData) {
+    const response = await this.client.post("/payments/initiate", paymentData);
     return response.data;
   }
 
@@ -289,26 +226,137 @@ class ApiService {
   /**
    * Get dashboard statistics
    */
-  async getDashboardStats() {
+  async getAdminStats() {
     const response = await this.client.get("/admin/dashboard/stats");
     return response.data;
   }
 
   /**
+   * Get all appointments (admin)
+   */
+  async getAllAppointments() {
+    const response = await this.client.get("/admin/appointments");
+    return response.data;
+  }
+
+  /**
+   * Update appointment status (admin)
+   * @param {string} id Appointment ID
+   * @param {Object} updates { status }
+   */
+  async updateAppointmentStatus(id, updates) {
+    const response = await this.client.put(`/admin/appointments/${id}`, updates);
+    return response.data;
+  }
+
+  /**
+   * Cancel appointment (admin)
+   * @param {string} id Appointment ID
+   */
+  async cancelAppointmentAdmin(id) {
+    const response = await this.client.post(`/admin/appointments/${id}/cancel`);
+    return response.data;
+  }
+
+  // =============================
+  // 🛠️ ADMIN SERVICE MANAGEMENT
+  // =============================
+
+  /**
+   * Get all services (admin - including inactive)
+   */
+  async adminGetAllServices() {
+    const response = await this.client.get("/admin/services");
+    return response.data;
+  }
+
+  /**
+   * Create new service (admin)
+   * @param {Object} serviceData { name, description, price, duration, category }
+   */
+  async adminCreateService(serviceData) {
+    const response = await this.client.post("/admin/services", serviceData);
+    return response.data;
+  }
+
+  /**
+   * Update service (admin)
+   * @param {string} id Service ID
+   * @param {Object} serviceData Updated service data
+   */
+  async adminUpdateService(id, serviceData) {
+    const response = await this.client.put(`/admin/services/${id}`, serviceData);
+    return response.data;
+  }
+
+  /**
+   * Delete service (admin)
+   * @param {string} id Service ID
+   */
+  async adminDeleteService(id) {
+    const response = await this.client.delete(`/admin/services/${id}`);
+    return response.data;
+  }
+
+  // =============================
+  // 👨‍💼 ADMIN STAFF MANAGEMENT
+  // =============================
+
+  /**
+   * Get all staff (admin - including inactive)
+   */
+  async adminGetAllStaff() {
+    const response = await this.client.get("/admin/staff");
+    return response.data;
+  }
+
+  /**
+   * Create new staff member (admin)
+   * @param {Object} staffData { name, email, phone, specialty, experience, bio, rating, image }
+   */
+  async adminCreateStaff(staffData) {
+    const response = await this.client.post("/admin/staff", staffData);
+    return response.data;
+  }
+
+  /**
+   * Update staff member (admin)
+   * @param {string} id Staff ID
+   * @param {Object} staffData Updated staff data
+   */
+  async adminUpdateStaff(id, staffData) {
+    const response = await this.client.put(`/admin/staff/${id}`, staffData);
+    return response.data;
+  }
+
+  /**
+   * Delete staff member (admin)
+   * @param {string} id Staff ID
+   */
+  async adminDeleteStaff(id) {
+    const response = await this.client.delete(`/admin/staff/${id}`);
+    return response.data;
+  }
+
+  // =============================
+  // 👥 ADMIN USER MANAGEMENT
+  // =============================
+
+  /**
    * Get all users (admin)
    */
-  async getUsers() {
+  async adminGetAllUsers() {
     const response = await this.client.get("/admin/users");
     return response.data;
   }
 
   /**
-   * Update user role (admin)
+   * Update user (admin)
    * @param {string} id User ID
-   * @param {Object} roleData { role }
+   * @param {Object} userData { firstName, lastName, email, phone, role, isActive }
    */
-  async updateUserRole(id, roleData) {
-    const response = await this.client.put(`/admin/users/${id}/role`, roleData);
+  async adminUpdateUser(id, userData) {
+    const response = await this.client.put(`/admin/users/${id}`, userData);
     return response.data;
   }
 
@@ -332,11 +380,27 @@ class ApiService {
   }
 
   /**
+   * Check if user is admin
+   */
+  isAdmin() {
+    const user = this.getStoredUser();
+    return user && user.role === 'admin';
+  }
+
+  /**
    * Update stored user data
    * @param {Object} userData User data to store
    */
   updateStoredUser(userData) {
     localStorage.setItem("userData", JSON.stringify(userData));
+  }
+
+  /**
+   * Health check
+   */
+  async healthCheck() {
+    const response = await this.client.get("/health");
+    return response.data;
   }
 }
 

@@ -5,8 +5,9 @@ import axios from 'axios';
 
 // Import your separate components
 import MyAppointments from './MyAppointments';
-import BookingPage from './BookApointments'; // Make sure this file exists
+import BookingPage from './BookApointments';
 import Profile from './Profile';
+import StaffPage from "./Staff";
 
 const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState('profile');
@@ -16,7 +17,6 @@ const UserDashboard = () => {
   const [services, setServices] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
   const [paymentHistory, setPaymentHistory] = useState([]);
-  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -28,29 +28,67 @@ const UserDashboard = () => {
     return localStorage.getItem('authToken');
   };
 
-  // API client with auth header
+  // API client with auth header - UPDATED with CORS handling
   const apiClient = axios.create({
     baseURL: apiUrl,
     headers: {
       'Authorization': `Bearer ${getAuthToken()}`,
       'Content-Type': 'application/json'
-    }
+    },
+    withCredentials: true // Add this for CORS
   });
 
-  // Fetch user profile
+  // Add request interceptor for better error handling
+  apiClient.interceptors.request.use(
+    (config) => {
+      console.log(`🔄 Making ${config.method?.toUpperCase()} request to: ${config.url}`);
+      return config;
+    },
+    (error) => {
+      console.error('❌ Request error:', error);
+      return Promise.reject(error);
+    }
+  );
+
+  // Add response interceptor for better error handling
+  apiClient.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      console.error('❌ Response error:', error);
+      if (error.code === 'NETWORK_ERROR' || error.message === 'Network Error') {
+        setError('Network error: Cannot connect to server. Please check if the backend is running.');
+      } else if (error.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+        handleLogout();
+      } else if (error.response?.status === 403) {
+        setError('Access forbidden. Please check your permissions.');
+      } else if (error.response?.status === 404) {
+        setError('Requested resource not found.');
+      } else if (error.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  // Fetch user profile - UPDATED with better error handling
   const fetchUserProfile = async () => {
     try {
+      console.log('🔄 Fetching user profile...');
       const response = await apiClient.get('/users/profile');
+      console.log('✅ User profile data:', response.data);
       setUserData(response.data);
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error('❌ Error fetching user profile:', err);
       if (err.response?.status === 401) {
         handleLogout();
+      } else {
+        setError('Failed to load user profile');
       }
     }
   };
 
-  // Fetch appointments
+  // Fetch appointments - UPDATED with better error handling
   const fetchAppointments = async () => {
     try {
       const response = await apiClient.get('/appointments/my-appointments');
@@ -63,48 +101,38 @@ const UserDashboard = () => {
       setUpcomingAppointments(upcoming);
       setPastAppointments(past);
     } catch (err) {
-      console.error('Error fetching appointments:', err);
-      setError('Failed to load appointments');
+      console.error('❌ Error fetching appointments:', err);
+      // Don't set error here to avoid spam - we'll show general error in interceptor
     }
   };
 
-  // Fetch services
+  // Fetch services - UPDATED with better error handling
   const fetchServices = async () => {
     try {
       const response = await apiClient.get('/services');
       setServices(response.data);
     } catch (err) {
-      console.error('Error fetching services:', err);
+      console.error('❌ Error fetching services:', err);
     }
   };
 
-  // Fetch staff
+  // Fetch staff - UPDATED with better error handling
   const fetchStaff = async () => {
     try {
       const response = await apiClient.get('/staff');
       setStaffMembers(response.data);
     } catch (err) {
-      console.error('Error fetching staff:', err);
+      console.error('❌ Error fetching staff:', err);
     }
   };
 
-  // Fetch payment history
+  // Fetch payment history - UPDATED with better error handling
   const fetchPayments = async () => {
     try {
       const response = await apiClient.get('/payments/my-payments');
       setPaymentHistory(response.data);
     } catch (err) {
-      console.error('Error fetching payments:', err);
-    }
-  };
-
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      const response = await apiClient.get('/notifications');
-      setNotifications(response.data);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
+      console.error('❌ Error fetching payments:', err);
     }
   };
 
@@ -153,17 +181,6 @@ const UserDashboard = () => {
     }
   };
 
-  // Mark notification as read
-  const markNotificationAsRead = async (notificationId) => {
-    try {
-      await apiClient.put(`/notifications/${notificationId}/read`);
-      // Refresh notifications
-      fetchNotifications();
-    } catch (err) {
-      console.error('Error marking notification as read:', err);
-    }
-  };
-
   // Handle logout
   const handleLogout = () => {
     localStorage.removeItem('authToken');
@@ -171,22 +188,24 @@ const UserDashboard = () => {
     navigate('/login');
   };
 
-  // Load all data on component mount
+  // Load all data on component mount - UPDATED to handle CORS errors gracefully
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
+        // Only fetch essential data - remove problematic endpoints temporarily
         await Promise.all([
           fetchUserProfile(),
           fetchAppointments(),
           fetchServices(),
-          fetchStaff(),
-          fetchPayments(),
-          fetchNotifications()
+          fetchStaff()
+          // Remove payments and notifications for now to avoid CORS errors
+          // fetchPayments(),
+          // fetchNotifications()
         ]);
       } catch (err) {
         console.error('Error loading UserDashboard data:', err);
-        setError('Failed to load UserDashboard data');
+        // Error is already handled in interceptors
       } finally {
         setLoading(false);
       }
@@ -216,9 +235,9 @@ const UserDashboard = () => {
               {userData?.firstName?.[0]}{userData?.lastName?.[0]}
             </div>
           </div>
-          {/* Welcome message */}
+          {/* Welcome message with better fallback */}
           <div className="welcome-message">
-            <span>Hey, {userData?.firstName}</span>
+            <span>Hey, {userData?.firstName || userData?.name || 'User'}</span>
           </div>
         </div>
         <br />
@@ -228,36 +247,32 @@ const UserDashboard = () => {
             className={`nav-item ${activeTab === 'profile' ? 'active red-active' : ''}`}
             onClick={() => setActiveTab('profile')}
           >
-            My Profile
+             My Profile
           </button>
           <button 
             className={`nav-item ${activeTab === 'appointments' ? 'active red-active' : ''}`}
             onClick={() => setActiveTab('appointments')}
           >
-            My Appointments
+           My Appointments
           </button>
           <button 
             className={`nav-item ${activeTab === 'book' ? 'active red-active' : ''}`}
-            onClick={() => setActiveTab('book')} /* FIXED: was 'bookapointments' */
+            onClick={() => setActiveTab('book')}
           >
-            Book Appointment
+           Book Appointment
           </button>
           <button 
             className={`nav-item ${activeTab === 'payments' ? 'active red-active' : ''}`}
             onClick={() => setActiveTab('payments')}
           >
-            Payments
+           Payments
           </button>
+          {/* REPLACED Notifications with Staff */}
           <button 
-            className={`nav-item ${activeTab === 'notifications' ? 'active red-active' : ''}`}
-            onClick={() => setActiveTab('notifications')}
+            className={`nav-item ${activeTab === 'staff' ? 'active red-active' : ''}`}
+            onClick={() => setActiveTab('staff')}
           >
-            Notifications
-            {notifications.filter(n => !n.read).length > 0 && (
-              <span className="nav-badge red-bg">
-                {notifications.filter(n => !n.read).length}
-              </span>
-            )}
+            👥 Our Staff
           </button>
         </nav>
       </div>
@@ -268,17 +283,11 @@ const UserDashboard = () => {
           <h1 className="red-text">
             {activeTab === 'profile' && 'My Profile'}
             {activeTab === 'appointments' && 'My Appointments'}
-            {activeTab === 'book' && 'Book New Appointment'} {/* This matches the tab name */}
+            {activeTab === 'book' && 'Book New Appointment'}
             {activeTab === 'payments' && 'Payment History'}
-            {activeTab === 'notifications' && 'Notifications'}
+            {activeTab === 'staff' && 'Our Team'} {/* Updated title */}
           </h1>
           <div className="header-actions">
-            <button className="notification-bell red-hover">
-              🔔
-              {notifications.filter(n => !n.read).length > 0 && (
-                <span className="notification-dot red-bg"></span>
-              )}
-            </button>
             <button className="logout-btn red-border" onClick={handleLogout}>
               Logout
             </button>
@@ -289,6 +298,13 @@ const UserDashboard = () => {
         {error && (
           <div className="error-message red-border">
             {error}
+            <button 
+              className="close-error" 
+              onClick={() => setError('')}
+              style={{ marginLeft: '10px', background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}
+            >
+              ×
+            </button>
           </div>
         )}
 
@@ -320,13 +336,10 @@ const UserDashboard = () => {
           </div>
         )}
 
-        {/* Notifications Tab */}
-        {activeTab === 'notifications' && (
+        {/* Staff Tab - NEW */}
+        {activeTab === 'staff' && (
           <div className="dashboard-content">
-            <NotificationsTab 
-              notifications={notifications}
-              onMarkAsRead={markNotificationAsRead}
-            />
+            <StaffTab staffMembers={staffMembers} />
           </div>
         )}
       </div>
@@ -369,34 +382,34 @@ const PaymentsTab = ({ paymentHistory }) => {
   );
 };
 
-// NotificationsTab Component
-const NotificationsTab = ({ notifications, onMarkAsRead }) => {
+// StaffTab Component - NEW (Simple version for now)
+const StaffTab = ({ staffMembers }) => {
   return (
     <div className="dashboard-content">
       <div className="content-section red-border">
-        <h2>Notifications</h2>
-        {notifications.length === 0 ? (
-          <p className="no-data">No notifications</p>
+        <h2>Our Professional Team</h2>
+        <p>Meet our talented team of beauty and wellness experts dedicated to making you look and feel your best.</p>
+        
+        {staffMembers.length === 0 ? (
+          <div className="no-data">
+            <p>No staff information available at the moment.</p>
+            <p>Please check back later or contact us directly.</p>
+          </div>
         ) : (
-          <div className="notifications-list">
-            {notifications.map(notification => (
-              <div 
-                key={notification._id} 
-                className={`notification-item red-border-left ${notification.read ? 'read' : 'unread red-active'}`}
-                onClick={() => !notification.read && onMarkAsRead(notification._id)}
-              >
-                <div className="notification-icon red-text">
-                  {notification.type === 'reminder' && '⏰'}
-                  {notification.type === 'promo' && '🎁'}
-                  {notification.type === 'loyalty' && '⭐'}
+          <div className="staff-grid-mini">
+            {staffMembers.map(staff => (
+              <div key={staff._id} className="staff-card-mini red-border">
+                <div className="staff-avatar-mini red-gradient">
+                  {staff.name?.split(' ').map(n => n[0]).join('') || 'ST'}
                 </div>
-                <div className="notification-content">
-                  <p>{notification.message}</p>
-                  <span className="notification-date">
-                    {new Date(notification.createdAt).toLocaleDateString()}
-                  </span>
+                <div className="staff-info-mini">
+                  <h3 className="red-text">{staff.name || 'Staff Member'}</h3>
+                  <p className="staff-role">{staff.specialty || 'Beauty Expert'}</p>
+                  <p className="staff-experience">{staff.experience || 'Professional'}</p>
+                  <div className="staff-status available">
+                    {staff.available !== false ? '✅ Available' : '⏸️ Unavailable'}
+                  </div>
                 </div>
-                {!notification.read && <div className="unread-dot red-bg"></div>}
               </div>
             ))}
           </div>

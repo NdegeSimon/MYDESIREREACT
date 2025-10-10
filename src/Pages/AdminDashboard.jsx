@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer 
 } from 'recharts';
-// import ApiService from '../utils/api';
+import ApiService from '../api';
 import "../index.css";
 
 const AdminDashboard = () => {
@@ -436,12 +436,16 @@ const CustomerManagement = () => {
   const [customers, setCustomers] = useState([]);
 
   useEffect(() => {
-    // This would typically come from an API endpoint like ApiService.getCustomers()
-    const mockCustomers = [
-      { id: 1, name: 'Sarah Johnson', email: 'sarah@email.com', phone: '+254712345678', appointments: 5 },
-      { id: 2, name: 'Mike Brown', email: 'mike@email.com', phone: '+254723456789', appointments: 3 },
-    ];
-    setCustomers(mockCustomers);
+    const fetchCustomers = async () => {
+      try {
+        const data = await ApiService.adminGetAllUsers();
+        setCustomers(data.users || []);
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+      }
+    };
+
+    fetchCustomers();
   }, []);
 
   return (
@@ -460,16 +464,22 @@ const CustomerManagement = () => {
               <th>Email</th>
               <th>Phone</th>
               <th>Total Appointments</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {customers.map(customer => (
               <tr key={customer.id}>
-                <td>{customer.name}</td>
+                <td>{customer.firstName} {customer.lastName}</td>
                 <td>{customer.email}</td>
                 <td>{customer.phone}</td>
-                <td>{customer.appointments}</td>
+                <td>{customer.appointmentCount || 0}</td>
+                <td>
+                  <span className={`status-badge ${customer.isActive ? 'confirmed' : 'cancelled'}`}>
+                    {customer.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
                 <td>
                   <button className="btn-sm btn-primary">View</button>
                   <button className="btn-sm btn-secondary">Edit</button>
@@ -483,27 +493,86 @@ const CustomerManagement = () => {
   );
 };
 
+// Enhanced Staff Management Component
 const StaffManagement = () => {
   const [staff, setStaff] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    specialty: 'hair-stylist',
+    experience: '',
+    bio: '',
+    rating: 0,
+    image: '/api/placeholder/300/300'
+  });
 
   useEffect(() => {
-    const fetchStaff = async () => {
-      try {
-        const data = await ApiService.getStaff();
-        setStaff(data);
-      } catch (error) {
-        console.error('Error fetching staff:', error);
-      }
-    };
-
     fetchStaff();
   }, []);
+
+  const fetchStaff = async () => {
+    try {
+      const data = await ApiService.adminGetAllStaff();
+      setStaff(data.staff || []);
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
+
+  const handleAddStaff = async () => {
+    try {
+      await ApiService.adminCreateStaff(newStaff);
+      setShowAddModal(false);
+      setNewStaff({
+        name: '',
+        email: '',
+        phone: '',
+        specialty: 'hair-stylist',
+        experience: '',
+        bio: '',
+        rating: 0,
+        image: '/api/placeholder/300/300'
+      });
+      fetchStaff();
+    } catch (error) {
+      console.error('Error adding staff:', error);
+    }
+  };
+
+  const handleUpdateStaff = async (staffId, updates) => {
+    try {
+      await ApiService.adminUpdateStaff(staffId, updates);
+      setEditingStaff(null);
+      fetchStaff();
+    } catch (error) {
+      console.error('Error updating staff:', error);
+    }
+  };
+
+  const handleDeleteStaff = async (staffId) => {
+    if (window.confirm('Are you sure you want to delete this staff member?')) {
+      try {
+        await ApiService.adminDeleteStaff(staffId);
+        fetchStaff();
+      } catch (error) {
+        console.error('Error deleting staff:', error);
+      }
+    }
+  };
 
   return (
     <div className="tab-content">
       <div className="section-header">
         <h2>Staff Management</h2>
-        <button className="primary-btn">+ Add Staff</button>
+        <button 
+          className="primary-btn"
+          onClick={() => setShowAddModal(true)}
+        >
+          + Add Staff
+        </button>
       </div>
       
       <div className="staff-grid">
@@ -515,40 +584,157 @@ const StaffManagement = () => {
             <div className="staff-info">
               <h3>{member.name}</h3>
               <p>{member.specialty}</p>
+              <p>Experience: {member.experience}</p>
               <p>⭐ {member.rating}</p>
+              <p className={member.isActive ? 'status-active' : 'status-inactive'}>
+                {member.isActive ? 'Active' : 'Inactive'}
+              </p>
             </div>
             <div className="staff-actions">
-              <button className="btn-sm btn-primary">Schedule</button>
-              <button className="btn-sm btn-secondary">Edit</button>
+              <button 
+                className="btn-sm btn-primary"
+                onClick={() => setEditingStaff(member)}
+              >
+                Edit
+              </button>
+              <button 
+                className="btn-sm btn-danger"
+                onClick={() => handleDeleteStaff(member.id)}
+              >
+                Delete
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Add Staff Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Add New Staff Member</h3>
+            <div className="modal-form">
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={newStaff.name}
+                onChange={(e) => setNewStaff({...newStaff, name: e.target.value})}
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={newStaff.email}
+                onChange={(e) => setNewStaff({...newStaff, email: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Phone"
+                value={newStaff.phone}
+                onChange={(e) => setNewStaff({...newStaff, phone: e.target.value})}
+              />
+              <select
+                value={newStaff.specialty}
+                onChange={(e) => setNewStaff({...newStaff, specialty: e.target.value})}
+              >
+                <option value="hair-stylist">Hair Stylist</option>
+                <option value="color-specialist">Color Specialist</option>
+                <option value="barber">Barber</option>
+                <option value="esthetician">Esthetician</option>
+                <option value="nail-technician">Nail Technician</option>
+                <option value="makeup-artist">Makeup Artist</option>
+                <option value="massage-therapist">Massage Therapist</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Experience (e.g., 5 years)"
+                value={newStaff.experience}
+                onChange={(e) => setNewStaff({...newStaff, experience: e.target.value})}
+              />
+              <textarea
+                placeholder="Bio"
+                value={newStaff.bio}
+                onChange={(e) => setNewStaff({...newStaff, bio: e.target.value})}
+              />
+              <div className="modal-actions">
+                <button onClick={handleAddStaff} className="btn-primary">Add Staff</button>
+                <button onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
+// Enhanced Services Management Component
 const ServicesManagement = () => {
   const [services, setServices] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [newService, setNewService] = useState({
+    name: '',
+    description: '',
+    price: '',
+    duration: 60,
+    category: 'hair'
+  });
 
   useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const data = await ApiService.getServices();
-        setServices(data);
-      } catch (error) {
-        console.error('Error fetching services:', error);
-      }
-    };
-
     fetchServices();
   }, []);
+
+  const fetchServices = async () => {
+    try {
+      const data = await ApiService.adminGetAllServices();
+      setServices(data.services || []);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    }
+  };
+
+  const handleAddService = async () => {
+    try {
+      await ApiService.adminCreateService(newService);
+      setShowAddModal(false);
+      setNewService({ name: '', description: '', price: '', duration: 60, category: 'hair' });
+      fetchServices(); // Refresh the list
+    } catch (error) {
+      console.error('Error adding service:', error);
+    }
+  };
+
+  const handleUpdateService = async (serviceId, updates) => {
+    try {
+      await ApiService.adminUpdateService(serviceId, updates);
+      setEditingService(null);
+      fetchServices();
+    } catch (error) {
+      console.error('Error updating service:', error);
+    }
+  };
+
+  const handleDeleteService = async (serviceId) => {
+    if (window.confirm('Are you sure you want to delete this service?')) {
+      try {
+        await ApiService.adminDeleteService(serviceId);
+        fetchServices(); // Refresh the list
+      } catch (error) {
+        console.error('Error deleting service:', error);
+      }
+    }
+  };
 
   return (
     <div className="tab-content">
       <div className="section-header">
         <h2>Services & Pricing</h2>
-        <button className="primary-btn">+ Add Service</button>
+        <button 
+          className="primary-btn"
+          onClick={() => setShowAddModal(true)}
+        >
+          + Add Service
+        </button>
       </div>
       
       <div className="services-table">
@@ -556,9 +742,11 @@ const ServicesManagement = () => {
           <thead>
             <tr>
               <th>Service Name</th>
-              <th>Duration</th>
+              <th>Description</th>
               <th>Price</th>
+              <th>Duration</th>
               <th>Category</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -566,18 +754,139 @@ const ServicesManagement = () => {
             {services.map(service => (
               <tr key={service.id}>
                 <td>{service.name}</td>
-                <td>{service.duration} mins</td>
+                <td>{service.description}</td>
                 <td>Ksh {service.price?.toLocaleString()}</td>
+                <td>{service.duration} mins</td>
                 <td>{service.category}</td>
                 <td>
-                  <button className="btn-sm btn-primary">Edit</button>
-                  <button className="btn-sm btn-danger">Delete</button>
+                  <span className={`status-badge ${service.isActive ? 'confirmed' : 'cancelled'}`}>
+                    {service.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td>
+                  <div className="action-buttons">
+                    <button 
+                      className="btn-sm btn-primary"
+                      onClick={() => setEditingService(service)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="btn-sm btn-danger"
+                      onClick={() => handleDeleteService(service.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {/* Add Service Modal */}
+      {showAddModal && (
+        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Add New Service</h3>
+            <div className="modal-form">
+              <input
+                type="text"
+                placeholder="Service Name"
+                value={newService.name}
+                onChange={(e) => setNewService({...newService, name: e.target.value})}
+              />
+              <textarea
+                placeholder="Description"
+                value={newService.description}
+                onChange={(e) => setNewService({...newService, description: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Price"
+                value={newService.price}
+                onChange={(e) => setNewService({...newService, price: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Duration (minutes)"
+                value={newService.duration}
+                onChange={(e) => setNewService({...newService, duration: parseInt(e.target.value) || 60})}
+              />
+              <select
+                value={newService.category}
+                onChange={(e) => setNewService({...newService, category: e.target.value})}
+              >
+                <option value="hair">Hair</option>
+                <option value="nails">Nails</option>
+                <option value="skincare">Skincare</option>
+                <option value="massage">Massage</option>
+                <option value="makeup">Makeup</option>
+                <option value="other">Other</option>
+              </select>
+              <div className="modal-actions">
+                <button onClick={handleAddService} className="btn-primary">Add Service</button>
+                <button onClick={() => setShowAddModal(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Service Modal */}
+      {editingService && (
+        <div className="modal-overlay" onClick={() => setEditingService(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>Edit Service</h3>
+            <div className="modal-form">
+              <input
+                type="text"
+                placeholder="Service Name"
+                value={editingService.name}
+                onChange={(e) => setEditingService({...editingService, name: e.target.value})}
+              />
+              <textarea
+                placeholder="Description"
+                value={editingService.description}
+                onChange={(e) => setEditingService({...editingService, description: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Price"
+                value={editingService.price}
+                onChange={(e) => setEditingService({...editingService, price: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Duration (minutes)"
+                value={editingService.duration}
+                onChange={(e) => setEditingService({...editingService, duration: parseInt(e.target.value) || 60})}
+              />
+              <select
+                value={editingService.category}
+                onChange={(e) => setEditingService({...editingService, category: e.target.value})}
+              >
+                <option value="hair">Hair</option>
+                <option value="nails">Nails</option>
+                <option value="skincare">Skincare</option>
+                <option value="massage">Massage</option>
+                <option value="makeup">Makeup</option>
+                <option value="other">Other</option>
+              </select>
+              <div className="modal-actions">
+                <button 
+                  onClick={() => handleUpdateService(editingService.id, editingService)} 
+                  className="btn-primary"
+                >
+                  Update Service
+                </button>
+                <button onClick={() => setEditingService(null)} className="btn-secondary">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -589,7 +898,7 @@ const PaymentsManagement = () => {
     const fetchPayments = async () => {
       try {
         const data = await ApiService.getMyPayments();
-        setPayments(data);
+        setPayments(data.payments || []);
       } catch (error) {
         console.error('Error fetching payments:', error);
       }

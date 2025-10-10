@@ -10,61 +10,104 @@ import Login from "./Pages/Login";
 import Signup from "./Pages/Signup";
 import UserDashboard from "./Pages/UserDashboard";
 import AdminDashboard from "./Pages/AdminDashboard";
+import StaffPage from "./Pages/Staff";
+import ServicesPage from "./Pages/Services";
 import Home from "./Pages/Home";
 import Profile from "./Pages/Profile";
 import Footer from "./components/Footer";
 import "./App.css";
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
-  return user ? children : <Navigate to="/login" />;
+  
+  if (loading) return <div className="loading">Loading...</div>;
+  if (!user) return <Navigate to="/login" />;
+  if (requireAdmin && user.role !== 'admin') return <Navigate to="/dashboard" />;
+  
+  return children;
 };
 
-const AdminRoute = ({ children }) => {
+const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div>Loading...</div>;
-  return user && user.role === "admin" ? children : <Navigate to="/" />;
+  
+  if (loading) return <div className="loading">Loading...</div>;
+  if (user) return <Navigate to="/dashboard" />;
+  
+  return children;
 };
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/profile" element={<Profile />} />
+        <div className="app-container">
+          <main className="main-content">
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/services" element={<ServicesPage />} />
+              
+              <Route 
+                path="/login" 
+                element={
+                  <PublicRoute>
+                    <Login />
+                  </PublicRoute>
+                } 
+              />
+              <Route 
+                path="/signup" 
+                element={
+                  <PublicRoute>
+                    <Signup />
+                  </PublicRoute>
+                } 
+              />
 
+              {/* Protected Routes */}
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/profile" 
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } 
+              />
 
+              {/* Admin Only Routes */}
+              <Route 
+                path="/admin/*" 
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
 
-          <Route
-            path="/userdashboard"
-            element={
-              <ProtectedRoute>
-                <UserDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <AdminRoute>
-                <AdminDashboard />
-              </AdminRoute>
-            }
-          />
-        </Routes>
-        <Footer />
+              {/* Staff Route (accessible by staff and admin) */}
+              <Route 
+                path="/staff" 
+                element={
+                  <ProtectedRoute>
+                    <StaffPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Fallback route */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
       </Router>
     </AuthProvider>
   );

@@ -5,6 +5,7 @@ import axios from 'axios';
 import "../App.css";
 import "../index.css";
 import ApiService from "../api";
+import lg from "../assets/lg.png";
 
 function Signup() {
   const [formData, setFormData] = useState({
@@ -213,7 +214,7 @@ function Signup() {
         <div className="signup-header">
           <Link to="/" className="signup-logo">
             <img 
-              src="/images/lg.png" 
+              src={lg}
               alt="My Desire Salon" 
               className="logo-image"
             />

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import "../index.css";
 
 function BookingPage() {
   const [selectedStaff, setSelectedStaff] = useState(null);
