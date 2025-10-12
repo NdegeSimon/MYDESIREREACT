@@ -1,513 +1,589 @@
 import React, { useState, useEffect } from 'react';
-import "../index.css";
+import '../index.css';
 
-const StaffPage = ({ isAdmin = false }) => {
-  const [selectedSpecialty, setSelectedSpecialty] = useState('all');
-  const [selectedStaff, setSelectedStaff] = useState(null);
-  const [staffMembers, setStaffMembers] = useState([]);
-  const [showAddStaffModal, setShowAddStaffModal] = useState(false);
-  const [newStaff, setNewStaff] = useState({
-    name: '',
-    title: '',
+const StaffPage = () => {
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [userRole, setUserRole] = useState('user');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, staff: null });
+
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
     specialty: 'hair-stylist',
     experience: '',
     bio: '',
-    skills: [],
-    services: [],
     rating: 0,
-    reviews: 0,
-    available: true,
-    featured: false
+    image: '',
+    workingHoursStart: '09:00',
+    workingHoursEnd: '18:00',
+    experienceYears: 0
   });
 
-  // Staff specialties
   const specialties = [
-    'all',
-    'hair-stylist',
-    'color-specialist',
-    'barber',
-    'esthetician',
-    'nail-technician',
-    'makeup-artist',
-    'massage-therapist'
+    { value: 'hair-stylist', label: 'Hair Stylist' },
+    { value: 'barber', label: 'Barber' },
+    { value: 'skincare-specialist', label: 'Skincare Specialist' },
+    { value: 'nails', label: 'Nail Technician' },
+    { value: 'massage', label: 'Massage Therapist' },
+    { value: 'makeup', label: 'Makeup Artist' }
   ];
 
-  // Load staff data from localStorage on component mount
   useEffect(() => {
-    const savedStaff = localStorage.getItem('staffData');
-    if (savedStaff) {
-      setStaffMembers(JSON.parse(savedStaff));
-    } else {
-      // Initialize with sample data if none exists
-      const initialStaff = [
-        {
-          id: 1,
-          name: "Sarah Johnson",
-          title: "Senior Hair Stylist",
-          specialty: "hair-stylist",
-          experience: "8 years",
-          image: "/api/placeholder/300/300",
-          bio: "Sarah specializes in precision cutting and modern hair trends.",
-          skills: ["Precision Cutting", "Balayage", "Hair Extensions"],
-          services: ["Women's Haircut", "Blowouts", "Updos"],
-          rating: 4.9,
-          reviews: 127,
-          available: true,
-          featured: true
-        },
-        {
-          id: 2,
-          name: "Marcus Rodriguez",
-          title: "Master Color Specialist",
-          specialty: "color-specialist",
-          experience: "12 years",
-          image: "/api/placeholder/300/300",
-          bio: "Marcus is our color genius with extensive training.",
-          skills: ["Balayage", "Color Correction", "Vivid Colors"],
-          services: ["Full Color", "Highlights", "Color Correction"],
-          rating: 5.0,
-          reviews: 89,
-          available: true,
-          featured: true
-        }
-      ];
-      setStaffMembers(initialStaff);
-      localStorage.setItem('staffData', JSON.stringify(initialStaff));
-    }
+    fetchUserRole();
   }, []);
 
-  // Save staff data whenever it changes
   useEffect(() => {
-    if (staffMembers.length > 0) {
-      localStorage.setItem('staffData', JSON.stringify(staffMembers));
+    if (userRole) {
+      fetchStaff();
     }
-  }, [staffMembers]);
+  }, [userRole]);
 
-  const filteredStaff = selectedSpecialty === 'all' 
-    ? staffMembers 
-    : staffMembers.filter(staff => staff.specialty === selectedSpecialty);
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-  const openStaffModal = (staff) => {
-    setSelectedStaff(staff);
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.user.role);
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
   };
 
-  const closeStaffModal = () => {
-    setSelectedStaff(null);
-  };
+  const fetchStaff = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      let endpoint = 'http://localhost:5000/api/staff';
+      let headers = {};
 
-  const deleteStaff = (staffId) => {
-    if (window.confirm('Are you sure you want to delete this staff member?')) {
-      const updatedStaff = staffMembers.filter(staff => staff.id !== staffId);
-      setStaffMembers(updatedStaff);
+      // If user is admin, use admin endpoint to get all staff (including inactive)
+      if (userRole === 'admin') {
+        endpoint = 'http://localhost:5000/api/admin/staff';
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+      }
+
+      const response = await fetch(endpoint, { headers });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStaff(data.staff || data);
+      } else {
+        setError('Failed to load staff');
+      }
+    } catch (error) {
+      setError('Error loading staff: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAddStaff = () => {
-    const staffWithId = {
-      ...newStaff,
-      id: Date.now(), // Simple ID generation
-      image: "/api/placeholder/300/300",
-      skills: newStaff.skills.length > 0 ? newStaff.skills.split(',').map(s => s.trim()) : [],
-      services: newStaff.services.length > 0 ? newStaff.services.split(',').map(s => s.trim()) : []
-    };
-
-    setStaffMembers([...staffMembers, staffWithId]);
-    setShowAddStaffModal(false);
-    setNewStaff({
-      name: '',
-      title: '',
+    setEditingStaff(null);
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
       specialty: 'hair-stylist',
       experience: '',
       bio: '',
-      skills: [],
-      services: [],
       rating: 0,
-      reviews: 0,
-      available: true,
-      featured: false
+      image: '',
+      workingHoursStart: '09:00',
+      workingHoursEnd: '18:00',
+      experienceYears: 0
     });
+    setDialogOpen(true);
+  };
+
+  const handleEditStaff = (staffMember) => {
+    setEditingStaff(staffMember);
+    setFormData({
+      firstName: staffMember.first_name,
+      lastName: staffMember.last_name,
+      email: staffMember.email,
+      phone: staffMember.phone || '',
+      specialty: staffMember.specialty,
+      experience: staffMember.experience || '',
+      bio: staffMember.bio || '',
+      rating: staffMember.rating || 0,
+      image: staffMember.image || '',
+      workingHoursStart: staffMember.working_hours_start || '09:00',
+      workingHoursEnd: staffMember.working_hours_end || '18:00',
+      experienceYears: staffMember.experience_years || 0
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDeleteStaff = (staffMember) => {
+    setDeleteConfirm({ open: true, staff: staffMember });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.staff) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/admin/staff/${deleteConfirm.staff.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setDeleteConfirm({ open: false, staff: null });
+        fetchStaff();
+      } else {
+        setError('Failed to delete staff member');
+      }
+    } catch (error) {
+      setError('Error deleting staff member: ' + error.message);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingStaff 
+        ? `http://localhost:5000/api/admin/staff/${editingStaff.id}`
+        : 'http://localhost:5000/api/admin/staff';
+      
+      const method = editingStaff ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          specialty: formData.specialty,
+          experience: formData.experience,
+          bio: formData.bio,
+          rating: parseFloat(formData.rating),
+          image: formData.image,
+          workingHoursStart: formData.workingHoursStart,
+          workingHoursEnd: formData.workingHoursEnd,
+          experienceYears: parseInt(formData.experienceYears)
+        })
+      });
+
+      if (response.ok) {
+        setDialogOpen(false);
+        fetchStaff();
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to save staff member');
+      }
+    } catch (error) {
+      setError('Error saving staff member: ' + error.message);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const getSpecialtyLabel = (specialty) => {
-    const labels = {
-      'hair-stylist': 'Hair Stylist',
-      'color-specialist': 'Color Specialist',
-      'barber': 'Barber',
-      'esthetician': 'Esthetician',
-      'nail-technician': 'Nail Technician',
-      'makeup-artist': 'Makeup Artist',
-      'massage-therapist': 'Massage Therapist'
-    };
-    return labels[specialty] || specialty;
+    const found = specialties.find(s => s.value === specialty);
+    return found ? found.label : specialty;
   };
 
-  return (
-    <div className="staff-page red-black-theme">
-      {/* Hero Section */}
-      <section className="staff-hero">
-        <div className="hero-content">
-          <h1 className="hero-title">Meet Our Expert Team</h1>
-          <p className="hero-subtitle">
-            Our talented professionals are dedicated to providing you with exceptional service 
-            and helping you look and feel your absolute best.
-          </p>
-          <div className="hero-stats">
-            <div className="stat">
-              <span className="stat-number red-text">{staffMembers.length}+</span>
-              <span className="stat-label">Expert Stylists</span>
-            </div>
-            <div className="stat">
-              <span className="stat-number red-text">50+</span>
-              <span className="stat-label">Years Combined Experience</span>
-            </div>
-            <div className="stat">
-              <span className="stat-number red-text">1000+</span>
-              <span className="stat-label">Happy Clients</span>
-            </div>
-          </div>
+  const getSpecialtyColor = (specialty) => {
+    const colors = {
+      'hair-stylist': '#4CAF50',
+      'barber': '#2196F3',
+      'skincare-specialist': '#FF9800',
+      'nails': '#E91E63',
+      'massage': '#9C27B0',
+      'makeup': '#607D8B'
+    };
+    return colors[specialty] || '#607D8B';
+  };
 
-          {/* Admin Only - Add Staff Button */}
-          {isAdmin && (
-            <div className="admin-controls">
-              <button 
-                className="add-staff-btn red-bg"
-                onClick={() => setShowAddStaffModal(true)}
-              >
-                + Add New Staff Member
-              </button>
-            </div>
-          )}
+  // Regular users can only view staff
+  if (userRole !== 'admin') {
+    return (
+      <div className="staff-page-container">
+        <div className="staff-header">
+          <h1>Our Professional Staff</h1>
+          <p>Meet our team of beauty experts</p>
         </div>
-      </section>
 
-      {/* Specialty Filter */}
-      <section className="specialty-filter">
-        <div className="filter-container">
-          <h2 className="filter-title">Find Your Specialist</h2>
-          <div className="filter-buttons">
-            {specialties.map(specialty => (
-              <button
-                key={specialty}
-                className={`specialty-btn ${selectedSpecialty === specialty ? 'active red-active' : ''}`}
-                onClick={() => setSelectedSpecialty(specialty)}
-              >
-                {specialty === 'all' ? 'All Team' : getSpecialtyLabel(specialty)}
-              </button>
+        {error && <div className="error-message">{error}</div>}
+
+        {loading ? (
+          <div className="loading">Loading staff...</div>
+        ) : (
+          <div className="staff-grid">
+            {staff.map(staffMember => (
+              <div key={staffMember.id} className="staff-card">
+                <div className="staff-avatar">
+                  {staffMember.image ? (
+                    <img src={staffMember.image} alt={`${staffMember.first_name} ${staffMember.last_name}`} />
+                  ) : (
+                    <div className="avatar-fallback">
+                      {staffMember.first_name[0]}{staffMember.last_name[0]}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="staff-info">
+                  <h3>{staffMember.first_name} {staffMember.last_name}</h3>
+                  <span 
+                    className="specialty-badge"
+                    style={{ backgroundColor: getSpecialtyColor(staffMember.specialty) }}
+                  >
+                    {getSpecialtyLabel(staffMember.specialty)}
+                  </span>
+                  
+                  {staffMember.rating > 0 && (
+                    <div className="rating">
+                      {'⭐'.repeat(Math.floor(staffMember.rating))}
+                      <span className="rating-text">{staffMember.rating}</span>
+                    </div>
+                  )}
+
+                  {staffMember.experience && (
+                    <p className="experience">{staffMember.experience}</p>
+                  )}
+
+                  {staffMember.bio && (
+                    <p className="bio">"{staffMember.bio}"</p>
+                  )}
+
+                  <div className="staff-contact">
+                    {staffMember.email && (
+                      <div className="contact-item">
+                        <span className="label">Email:</span>
+                        <span className="value">{staffMember.email}</span>
+                      </div>
+                    )}
+                    {staffMember.phone && (
+                      <div className="contact-item">
+                        <span className="label">Phone:</span>
+                        <span className="value">{staffMember.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
-        </div>
-      </section>
+        )}
+      </div>
+    );
+  }
 
-      {/* Staff Grid */}
-      <section className="staff-grid-section">
-        <div className="container">
-          <h2 className="section-title">
-            {selectedSpecialty === 'all' ? 'Our Entire Team' : getSpecialtyLabel(selectedSpecialty) + 's'}
-          </h2>
-          
-          {filteredStaff.length === 0 ? (
-            <div className="no-staff-message">
-              <h3>No staff members found</h3>
-              <p>Please check back later or contact us for more information.</p>
-            </div>
-          ) : (
-            <div className="staff-grid">
-              {filteredStaff.map(staff => (
-                <div key={staff.id} className="staff-card red-border">
-                  <div className="card-header">
-                    <div className="staff-image">
-                      <img 
-                        src={staff.image} 
-                        alt={staff.name}
-                        onError={(e) => {
-                          e.target.src = `https://via.placeholder.com/300x300/DC2626/FFFFFF?text=${encodeURIComponent(staff.name.split(' ')[0])}`;
-                        }}
-                      />
-                      {!staff.available && (
-                        <div className="unavailable-overlay">
-                          <span>On Leave</span>
-                        </div>
-                      )}
-                    </div>
-                    {staff.featured && selectedSpecialty === 'all' && (
-                      <div className="featured-tag red-bg">Featured</div>
-                    )}
-                    
-                    {/* Admin Only - Delete Button */}
-                    {isAdmin && (
-                      <button 
-                        className="delete-staff-btn"
-                        onClick={() => deleteStaff(staff.id)}
-                        title="Delete Staff Member"
-                      >
-                        ×
-                      </button>
-                    )}
+  // Admin users get full CRUD access
+  return (
+    <div className="staff-page-container">
+      <div className="staff-header">
+        <h1>Staff Management</h1>
+        <p>Manage your salon staff members</p>
+      </div>
+
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="staff-actions">
+        <button className="btn-primary" onClick={handleAddStaff}>
+          Add New Staff Member
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="loading">Loading staff...</div>
+      ) : (
+        <div className="staff-grid">
+          {staff.map(staffMember => (
+            <div key={staffMember.id} className="staff-card admin-card">
+              <div className="staff-avatar">
+                {staffMember.image ? (
+                  <img src={staffMember.image} alt={`${staffMember.first_name} ${staffMember.last_name}`} />
+                ) : (
+                  <div className="avatar-fallback">
+                    {staffMember.first_name[0]}{staffMember.last_name[0]}
                   </div>
-                  
-                  <div className="card-content">
-                    <h3 className="staff-name red-text">{staff.name}</h3>
-                    <p className="staff-title">{staff.title}</p>
-                    <p className="staff-experience">Experience: {staff.experience}</p>
-                    
-                    <div className="staff-rating">
-                      <span className="stars">★★★★★</span>
-                      <span className="rating">{staff.rating} ({staff.reviews} reviews)</span>
-                    </div>
-
-                    <div className="availability">
-                      <span className={`status ${staff.available ? 'available' : 'unavailable'}`}>
-                        {staff.available ? '✅ Available' : '⏸️ On Leave'}
-                      </span>
-                    </div>
-
-                    <div className="staff-skills">
-                      {staff.skills.slice(0, 3).map((skill, index) => (
-                        <span key={index} className="skill-tag red-border">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="card-actions">
-                      <button 
-                        className="profile-btn red-border"
-                        onClick={() => openStaffModal(staff)}
-                      >
-                        View Profile
-                      </button>
-                      <button 
-                        className={`book-btn ${staff.available ? 'red-bg' : 'disabled'}`}
-                        disabled={!staff.available}
-                      >
-                        {staff.available ? 'Book Now' : 'Unavailable'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Staff Details Modal */}
-      {selectedStaff && (
-        <div className="staff-modal-overlay" onClick={closeStaffModal}>
-          <div className="staff-modal red-border" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeStaffModal}>×</button>
-            
-            <div className="modal-content">
-              <div className="modal-image-section">
-                <div className="staff-image-large">
-                  <img 
-                    src={selectedStaff.image} 
-                    alt={selectedStaff.name}
-                    onError={(e) => {
-                      e.target.src = `https://via.placeholder.com/400x400/DC2626/FFFFFF?text=${encodeURIComponent(selectedStaff.name.split(' ')[0])}`;
-                    }}
-                  />
-                </div>
-                {selectedStaff.featured && (
-                  <div className="featured-badge-large red-bg">Featured Artist</div>
+                )}
+                {!staffMember.is_active && (
+                  <div className="inactive-badge">Inactive</div>
                 )}
               </div>
               
-              <div className="modal-details">
-                <div className="modal-header">
-                  <h2 className="modal-name red-text">{selectedStaff.name}</h2>
-                  <p className="modal-title">{selectedStaff.title}</p>
-                  <div className="modal-meta">
-                    <span className="experience">{selectedStaff.experience} Experience</span>
-                    <span className="rating">
-                      ★ {selectedStaff.rating} ({selectedStaff.reviews} reviews)
-                    </span>
-                    <span className={`availability ${selectedStaff.available ? 'available' : 'unavailable'}`}>
-                      {selectedStaff.available ? 'Available' : 'On Leave'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="modal-bio">
-                  <h3>About Me</h3>
-                  <p>{selectedStaff.bio}</p>
-                </div>
-
-                <div className="modal-skills">
-                  <h3>Specialties</h3>
-                  <div className="skills-grid">
-                    {selectedStaff.skills.map((skill, index) => (
-                      <div key={index} className="skill-item red-border">
-                        {skill}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="modal-services">
-                  <h3>Services Offered</h3>
-                  <ul>
-                    {selectedStaff.services.map((service, index) => (
-                      <li key={index}>{service}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="modal-actions">
-                  <button 
-                    className={`btn-primary ${selectedStaff.available ? 'red-bg' : 'disabled'}`}
-                    disabled={!selectedStaff.available}
-                  >
-                    {selectedStaff.available ? 'Book Appointment' : 'Currently Unavailable'}
-                  </button>
-                  <button className="btn-secondary red-border" onClick={closeStaffModal}>
-                    Back to Team
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Staff Modal - Admin Only */}
-      {showAddStaffModal && isAdmin && (
-        <div className="staff-modal-overlay" onClick={() => setShowAddStaffModal(false)}>
-          <div className="staff-modal red-border" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setShowAddStaffModal(false)}>×</button>
-            
-            <div className="modal-content">
-              <div className="modal-details">
-                <h2 className="modal-name red-text">Add New Staff Member</h2>
+              <div className="staff-info">
+                <h3>{staffMember.first_name} {staffMember.last_name}</h3>
+                <span 
+                  className="specialty-badge"
+                  style={{ backgroundColor: getSpecialtyColor(staffMember.specialty) }}
+                >
+                  {getSpecialtyLabel(staffMember.specialty)}
+                </span>
                 
-                <div className="add-staff-form">
-                  <div className="form-group">
-                    <label>Full Name *</label>
-                    <input 
-                      type="text" 
-                      value={newStaff.name}
-                      onChange={(e) => setNewStaff({...newStaff, name: e.target.value})}
-                      placeholder="Enter full name"
-                    />
+                {staffMember.rating > 0 && (
+                  <div className="rating">
+                    {'⭐'.repeat(Math.floor(staffMember.rating))}
+                    <span className="rating-text">{staffMember.rating}</span>
                   </div>
+                )}
 
-                  <div className="form-group">
-                    <label>Title *</label>
-                    <input 
-                      type="text" 
-                      value={newStaff.title}
-                      onChange={(e) => setNewStaff({...newStaff, title: e.target.value})}
-                      placeholder="e.g., Senior Hair Stylist"
-                    />
-                  </div>
+                {staffMember.experience && (
+                  <p className="experience">{staffMember.experience}</p>
+                )}
 
-                  <div className="form-group">
-                    <label>Specialty *</label>
-                    <select 
-                      value={newStaff.specialty}
-                      onChange={(e) => setNewStaff({...newStaff, specialty: e.target.value})}
-                    >
-                      {specialties.filter(s => s !== 'all').map(specialty => (
-                        <option key={specialty} value={specialty}>
-                          {getSpecialtyLabel(specialty)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                {staffMember.bio && (
+                  <p className="bio">"{staffMember.bio}"</p>
+                )}
 
-                  <div className="form-group">
-                    <label>Experience *</label>
-                    <input 
-                      type="text" 
-                      value={newStaff.experience}
-                      onChange={(e) => setNewStaff({...newStaff, experience: e.target.value})}
-                      placeholder="e.g., 5 years"
-                    />
-                  </div>
+                <div className="staff-contact">
+                  {staffMember.email && (
+                    <div className="contact-item">
+                      <span className="label">Email:</span>
+                      <span className="value">{staffMember.email}</span>
+                    </div>
+                  )}
+                  {staffMember.phone && (
+                    <div className="contact-item">
+                      <span className="label">Phone:</span>
+                      <span className="value">{staffMember.phone}</span>
+                    </div>
+                  )}
+                  {staffMember.working_hours_start && staffMember.working_hours_end && (
+                    <div className="contact-item">
+                      <span className="label">Hours:</span>
+                      <span className="value">{staffMember.working_hours_start} - {staffMember.working_hours_end}</span>
+                    </div>
+                  )}
+                </div>
 
-                  <div className="form-group">
-                    <label>Bio *</label>
-                    <textarea 
-                      value={newStaff.bio}
-                      onChange={(e) => setNewStaff({...newStaff, bio: e.target.value})}
-                      placeholder="Enter staff biography"
-                      rows="3"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Skills (comma separated)</label>
-                    <input 
-                      type="text" 
-                      value={newStaff.skills}
-                      onChange={(e) => setNewStaff({...newStaff, skills: e.target.value})}
-                      placeholder="e.g., Cutting, Coloring, Styling"
-                    />
-                  </div>
-
-                  <div className="form-group">
-                    <label>Services (comma separated)</label>
-                    <input 
-                      type="text" 
-                      value={newStaff.services}
-                      onChange={(e) => setNewStaff({...newStaff, services: e.target.value})}
-                      placeholder="e.g., Haircut, Color, Treatment"
-                    />
-                  </div>
-
-                  <div className="form-options">
-                    <label className="checkbox-label">
-                      <input 
-                        type="checkbox" 
-                        checked={newStaff.available}
-                        onChange={(e) => setNewStaff({...newStaff, available: e.target.checked})}
-                      />
-                      Available for bookings
-                    </label>
-                    
-                    <label className="checkbox-label">
-                      <input 
-                        type="checkbox" 
-                        checked={newStaff.featured}
-                        onChange={(e) => setNewStaff({...newStaff, featured: e.target.checked})}
-                      />
-                      Featured staff member
-                    </label>
-                  </div>
-
-                  <div className="modal-actions">
-                    <button 
-                      className="btn-primary red-bg"
-                      onClick={handleAddStaff}
-                      disabled={!newStaff.name || !newStaff.title || !newStaff.experience || !newStaff.bio}
-                    >
-                      Add Staff Member
-                    </button>
-                    <button 
-                      className="btn-secondary red-border"
-                      onClick={() => setShowAddStaffModal(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                <div className="staff-actions">
+                  <button 
+                    className="btn-edit"
+                    onClick={() => handleEditStaff(staffMember)}
+                  >
+                    Edit
+                  </button>
+                  <button 
+                    className="btn-delete"
+                    onClick={() => handleDeleteStaff(staffMember)}
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Staff Dialog */}
+      {dialogOpen && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h3>{editingStaff ? 'Edit Staff Member' : 'Add New Staff Member'}</h3>
+            
+            <form onSubmit={handleSubmit}>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => handleInputChange('lastName', e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Specialty</label>
+                <select
+                  value={formData.specialty}
+                  onChange={(e) => handleInputChange('specialty', e.target.value)}
+                >
+                  {specialties.map(specialty => (
+                    <option key={specialty.value} value={specialty.value}>
+                      {specialty.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Rating</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="5"
+                    value={formData.rating}
+                    onChange={(e) => handleInputChange('rating', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Experience (Years)</label>
+                  <input
+                    type="number"
+                    value={formData.experienceYears}
+                    onChange={(e) => handleInputChange('experienceYears', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Working Hours Start</label>
+                  <input
+                    type="time"
+                    value={formData.workingHoursStart}
+                    onChange={(e) => handleInputChange('workingHoursStart', e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Working Hours End</label>
+                  <input
+                    type="time"
+                    value={formData.workingHoursEnd}
+                    onChange={(e) => handleInputChange('workingHoursEnd', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Experience Description</label>
+                <input
+                  type="text"
+                  value={formData.experience}
+                  onChange={(e) => handleInputChange('experience', e.target.value)}
+                  placeholder="e.g., 5 years in hair styling"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Bio</label>
+                <textarea
+                  value={formData.bio}
+                  onChange={(e) => handleInputChange('bio', e.target.value)}
+                  rows="3"
+                  placeholder="Short bio about the staff member..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Image URL</label>
+                <input
+                  type="url"
+                  value={formData.image}
+                  onChange={(e) => handleInputChange('image', e.target.value)}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="dialog-actions">
+                <button 
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  {editingStaff ? 'Update Staff' : 'Add Staff'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* CTA Section */}
-      <section className="staff-cta red-bg">
-        <div className="cta-content">
-          <h2>Ready to Work With Our Experts?</h2>
-          <p>Book your appointment with our talented team and experience the difference of professional care.</p>
-          <div className="cta-buttons">
-            <button className="cta-btn-primary">Book Consultation</button>
-            <button className="cta-btn-secondary">Call: +254 700 123 456</button>
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm.open && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h3>Delete Staff Member</h3>
+            <p>Are you sure you want to delete this staff member? This action cannot be undone.</p>
+            
+            {deleteConfirm.staff && (
+              <div className="staff-summary">
+                <p><strong>Name:</strong> {deleteConfirm.staff.first_name} {deleteConfirm.staff.last_name}</p>
+                <p><strong>Specialty:</strong> {getSpecialtyLabel(deleteConfirm.staff.specialty)}</p>
+                <p><strong>Email:</strong> {deleteConfirm.staff.email}</p>
+              </div>
+            )}
+
+            <div className="dialog-actions">
+              <button 
+                className="btn-secondary"
+                onClick={() => setDeleteConfirm({ open: false, staff: null })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-danger"
+                onClick={confirmDelete}
+              >
+                Delete Staff Member
+              </button>
+            </div>
           </div>
         </div>
-      </section>
+      )}
     </div>
   );
 };

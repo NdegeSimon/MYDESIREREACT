@@ -1,348 +1,433 @@
 import React, { useState, useEffect } from 'react';
-import ApiService from '../api'; 
+import '../index.css';
 
 const ServicesPage = () => {
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedService, setSelectedService] = useState(null);
   const [services, setServices] = useState([]);
+  const [filteredServices, setFilteredServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [staff, setStaff] = useState([]);
-  const [showBookingForm, setShowBookingForm] = useState(false);
-  const [bookingData, setBookingData] = useState({
-    serviceId: '',
-    staffId: '',
-    date: '',
-    time: '',
-    notes: ''
+  const [error, setError] = useState('');
+  const [userRole, setUserRole] = useState('user');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingService, setEditingService] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, service: null });
+
+  const categories = [
+    { value: 'all', label: 'All Services' },
+    { value: 'hair', label: 'Hair Services' },
+    { value: 'nails', label: 'Nail Services' },
+    { value: 'skincare', label: 'Skincare' },
+    { value: 'massage', label: 'Massage' },
+    { value: 'makeup', label: 'Makeup' },
+    { value: 'general', label: 'General' }
+  ];
+
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    duration: 60,
+    category: 'hair',
+    image: '',
+    staffRequired: true
   });
 
-  // Service categories
-  const categories = [
-    'all',
-    'hair',
-    'skincare',
-    'nails',
-    'waxing',
-    'makeup',
-    'massage',
-    'specialty'
-  ];
-
-  // Fetch services and staff from API
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [servicesData, staffData] = await Promise.all([
-          salonApi.getServices(),
-          salonApi.getStaff()
-        ]);
-        setServices(servicesData);
-        setStaff(staffData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        // Fallback to sample data if API fails
-        setServices(sampleServices);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchUserRole();
   }, []);
 
-  // Sample data fallback
-  const sampleServices = [
-    // Hair Services
-    {
-      id: 1,
-      name: "Women's Haircut & Style",
-      category: "hair",
-      price: 2000,
-      duration: 60,
-      image: "/api/placeholder/300/200",
-      description: "Professional haircut tailored to your face shape and style preferences",
-      fullDesc: "Our expert stylists will consult with you to create the perfect haircut that complements your face shape, hair texture, and lifestyle. Includes shampoo, conditioning treatment, and professional blow-dry styling.",
-      features: ["Personalized consultation", "Precision cutting", "Shampoo & conditioner", "Blow-dry styling", "Style advice"]
-    },
-    {
-      id: 2,
-      name: "Men's Haircut",
-      category: "hair",
-      price: 1000,
-      duration: 30,
-      image: "/api/placeholder/300/200",
-      description: "Classic or modern men's haircut with styling",
-      fullDesc: "Traditional or contemporary men's haircut performed by our skilled barbers. Includes shampoo, precise cutting, and finishing with product application.",
-      features: ["Style consultation", "Precision cutting", "Neck shave", "Product application", "Hot towel service"]
-    },
-    // Add more sample services as needed...
-  ];
-
-  const filteredServices = selectedCategory === 'all' 
-    ? services 
-    : services.filter(service => service.category === selectedCategory);
-
-  const openServiceModal = (service) => {
-    setSelectedService(service);
-  };
-
-  const closeServiceModal = () => {
-    setSelectedService(null);
-  };
-
-  const handleBookService = (service) => {
-    setSelectedService(null);
-    setBookingData({
-      ...bookingData,
-      serviceId: service.id,
-      price: service.price
-    });
-    setShowBookingForm(true);
-  };
-
-  const handleBookingSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await salonApi.createAppointment(bookingData);
-      setShowBookingForm(false);
-      setBookingData({
-        serviceId: '',
-        staffId: '',
-        date: '',
-        time: '',
-        notes: ''
-      });
-      alert('Appointment booked successfully!');
-    } catch (error) {
-      alert('Error booking appointment: ' + error.message);
+  useEffect(() => {
+    if (userRole) {
+      fetchServices();
     }
+  }, [userRole]);
+
+  useEffect(() => {
+    filterServices();
+  }, [services, categoryFilter]);
+
+  const fetchUserRole = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:5000/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUserRole(data.user.role);
+      }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      let endpoint = 'http://localhost:5000/api/services';
+      let headers = {};
+
+      if (userRole === 'admin') {
+        endpoint = 'http://localhost:5000/api/admin/services';
+        headers = {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+      }
+
+      const response = await fetch(endpoint, { headers });
+
+      if (response.ok) {
+        const data = await response.json();
+        setServices(data.services || data);
+      } else {
+        setError('Failed to load services');
+      }
+    } catch (error) {
+      setError('Error loading services: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterServices = () => {
+    if (categoryFilter === 'all') {
+      setFilteredServices(services);
+    } else {
+      const filtered = services.filter(service => 
+        service.category === categoryFilter && service.isActive !== false
+      );
+      setFilteredServices(filtered);
+    }
+  };
+
+  const handleAddService = () => {
+    setEditingService(null);
+    setFormData({
+      name: '',
+      description: '',
+      price: '',
+      duration: 60,
+      category: 'hair',
+      image: '',
+      staffRequired: true
+    });
+    setDialogOpen(true);
+  };
+
+  const handleEditService = (service) => {
+    setEditingService(service);
+    setFormData({
+      name: service.name,
+      description: service.description || '',
+      price: service.price.toString(),
+      duration: service.duration || 60,
+      category: service.category || 'hair',
+      image: service.image || '',
+      staffRequired: service.staffRequired !== false
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDeleteService = (service) => {
+    setDeleteConfirm({ open: true, service });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.service) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:5000/api/admin/services/${deleteConfirm.service.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setDeleteConfirm({ open: false, service: null });
+        fetchServices();
+      } else {
+        setError('Failed to delete service');
+      }
+    } catch (error) {
+      setError('Error deleting service: ' + error.message);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingService 
+        ? `http://localhost:5000/api/admin/services/${editingService.id}`
+        : 'http://localhost:5000/api/admin/services';
+      
+      const method = editingService ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description,
+          price: parseFloat(formData.price),
+          duration: parseInt(formData.duration),
+          category: formData.category,
+          image: formData.image,
+          staffRequired: formData.staffRequired
+        })
+      });
+
+      if (response.ok) {
+        setDialogOpen(false);
+        fetchServices();
+      } else {
+        const data = await response.json();
+        setError(data.message || 'Failed to save service');
+      }
+    } catch (error) {
+      setError('Error saving service: ' + error.message);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const getCategoryColor = (category) => {
+    const colors = {
+      'hair': '#4CAF50',
+      'nails': '#FF9800',
+      'skincare': '#2196F3',
+      'massage': '#9C27B0',
+      'makeup': '#E91E63',
+      'general': '#607D8B'
+    };
+    return colors[category] || '#607D8B';
   };
 
   if (loading) {
     return (
-      <div className="services-page red-black-theme">
+      <div className="services-container">
         <div className="loading">Loading services...</div>
       </div>
     );
   }
 
   return (
-    <div className="services-page red-black-theme">
-      {/* Header Section */}
-      <section className="services-hero">
-        <div className="hero-content">
-          <h1 className="hero-title">Our Premium Services</h1>
-          <p className="hero-subtitle">
-            Experience luxury and excellence with our comprehensive range of beauty and wellness services. 
-            Book your appointment today and let our experts pamper you.
-          </p>
-        </div>
-      </section>
+    <div className="services-container">
+      <div className="services-header">
+        <h1>Our Services</h1>
+        <p>Discover our range of professional beauty services</p>
+      </div>
 
-      {/* Category Filter */}
-      <section className="category-filter">
-        <div className="filter-container">
-          {categories.map(category => (
-            <button
-              key={category}
-              className={`filter-btn ${selectedCategory === category ? 'active red-active' : ''}`}
-              onClick={() => setSelectedCategory(category)}
-            >
-              {category.charAt(0).toUpperCase() + category.slice(1)}
-            </button>
-          ))}
-        </div>
-      </section>
+      {error && <div className="error-message">{error}</div>}
 
-      {/* Services Grid */}
-      <section className="services-grid-section">
-        <div className="container">
-          <div className="services-grid">
-            {filteredServices.map(service => (
-              <div key={service.id} className="service-card red-border">
-                <div className="service-image">
-                  <img 
-                    src={service.image || `/api/placeholder/300/200`} 
-                    alt={service.name}
-                    onError={(e) => {
-                      e.target.src = `https://via.placeholder.com/300x200/DC2626/FFFFFF?text=${encodeURIComponent(service.name)}`;
-                    }}
-                  />
-                  <div className="service-price-tag red-bg">
-                    Ksh {service.price}
-                  </div>
-                </div>
-                
-                <div className="service-content">
-                  <h3 className="service-name red-text">{service.name}</h3>
-                  <p className="service-duration">{service.duration} minutes</p>
-                  <p className="service-short-desc">{service.description}</p>
-                  
-                  <div className="service-features">
-                    {service.features && service.features.slice(0, 3).map((feature, index) => (
-                      <span key={index} className="feature-tag red-border">
-                        {feature}
-                      </span>
-                    ))}
-                  </div>
-
-                  <button 
-                    className="more-info-btn red-border"
-                    onClick={() => openServiceModal(service)}
-                  >
-                    Learn More & Book
-                  </button>
-                </div>
-              </div>
+      <div className="services-controls">
+        <div className="filter-section">
+          <label>Filter by Category:</label>
+          <select 
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="category-filter"
+          >
+            {categories.map(cat => (
+              <option key={cat.value} value={cat.value}>
+                {cat.label}
+              </option>
             ))}
-          </div>
+          </select>
         </div>
-      </section>
 
-      {/* Service Modal */}
-      {selectedService && (
-        <div className="service-modal-overlay" onClick={closeServiceModal}>
-          <div className="service-modal red-border" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeServiceModal}>×</button>
-            
-            <div className="modal-content">
-              <div className="modal-image">
-                <img 
-                  src={selectedService.image || `/api/placeholder/500/300`} 
-                  alt={selectedService.name}
-                  onError={(e) => {
-                    e.target.src = `https://via.placeholder.com/500x300/DC2626/FFFFFF?text=${encodeURIComponent(selectedService.name)}`;
-                  }}
-                />
-              </div>
+        {userRole === 'admin' && (
+          <button className="btn-primary" onClick={handleAddService}>
+            Add New Service
+          </button>
+        )}
+      </div>
+
+      <div className="services-grid">
+        {filteredServices.length === 0 ? (
+          <div className="empty-state">
+            <h3>No services found</h3>
+            <p>No services available in this category.</p>
+          </div>
+        ) : (
+          filteredServices.map((service) => (
+            <div key={service.id} className="service-card">
+              {service.image && (
+                <div className="service-image">
+                  <img src={service.image} alt={service.name} />
+                </div>
+              )}
               
-              <div className="modal-details">
-                <h2 className="modal-title red-text">{selectedService.name}</h2>
-                <div className="modal-meta">
-                  <span className="modal-price red-text">Ksh {selectedService.price}</span>
-                  <span className="modal-duration">{selectedService.duration} minutes</span>
-                </div>
-                
-                <div className="modal-description">
-                  <h4>Service Description</h4>
-                  <p>{selectedService.fullDesc || selectedService.description}</p>
+              <div className="service-content">
+                <div className="service-header">
+                  <h3>{service.name}</h3>
+                  <span 
+                    className="category-badge"
+                    style={{ backgroundColor: getCategoryColor(service.category) }}
+                  >
+                    {service.category}
+                  </span>
                 </div>
 
-                {selectedService.features && (
-                  <div className="modal-features">
-                    <h4>What's Included</h4>
-                    <ul>
-                      {selectedService.features.map((feature, index) => (
-                        <li key={index}>{feature}</li>
-                      ))}
-                    </ul>
+                <p className="service-description">
+                  {service.description || 'Professional beauty service'}
+                </p>
+
+                <div className="service-details">
+                  <div className="detail">
+                    <span className="label">Price:</span>
+                    <span className="value">KES {service.price}</span>
+                  </div>
+                  <div className="detail">
+                    <span className="label">Duration:</span>
+                    <span className="value">{service.duration} mins</span>
+                  </div>
+                  <div className="detail">
+                    <span className="label">Staff Required:</span>
+                    <span className="value">{service.staffRequired ? 'Yes' : 'No'}</span>
+                  </div>
+                  {service.staffCount > 0 && (
+                    <div className="detail">
+                      <span className="label">Available Staff:</span>
+                      <span className="value">{service.staffCount}</span>
+                    </div>
+                  )}
+                </div>
+
+                {userRole === 'admin' && (
+                  <div className="service-actions">
+                    <button 
+                      className="btn-edit"
+                      onClick={() => handleEditService(service)}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      className="btn-delete"
+                      onClick={() => handleDeleteService(service)}
+                    >
+                      Delete
+                    </button>
                   </div>
                 )}
-
-                <div className="modal-actions">
-                  <button 
-                    className="btn-primary red-bg"
-                    onClick={() => handleBookService(selectedService)}
-                  >
-                    Book This Service
-                  </button>
-                  <button className="btn-secondary red-border" onClick={closeServiceModal}>
-                    View Other Services
-                  </button>
-                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          ))
+        )}
+      </div>
 
-      {/* Booking Form Modal */}
-      {showBookingForm && (
-        <div className="modal-overlay">
-          <div className="modal red-border">
-            <h2>Book Appointment</h2>
-            <form onSubmit={handleBookingSubmit}>
+      {/* Add/Edit Service Dialog */}
+      {dialogOpen && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h3>{editingService ? 'Edit Service' : 'Add New Service'}</h3>
+            
+            <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Service:</label>
-                <select 
-                  value={bookingData.serviceId}
-                  onChange={(e) => setBookingData({...bookingData, serviceId: e.target.value})}
-                  required
-                >
-                  <option value="">Select a service</option>
-                  {services.map(service => (
-                    <option key={service.id} value={service.id}>
-                      {service.name} - KES {service.price}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Staff:</label>
-                <select 
-                  value={bookingData.staffId}
-                  onChange={(e) => setBookingData({...bookingData, staffId: e.target.value})}
-                  required
-                >
-                  <option value="">Select staff</option>
-                  {staff.map(staffMember => (
-                    <option key={staffMember.id} value={staffMember.id}>
-                      {staffMember.name} ({staffMember.specialty})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Date:</label>
+                <label>Service Name *</label>
                 <input
-                  type="date"
-                  value={bookingData.date}
-                  onChange={(e) => setBookingData({...bookingData, date: e.target.value})}
-                  min={new Date().toISOString().split('T')[0]}
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
                   required
                 />
               </div>
 
               <div className="form-group">
-                <label>Time:</label>
-                <select 
-                  value={bookingData.time}
-                  onChange={(e) => setBookingData({...bookingData, time: e.target.value})}
-                  required
-                >
-                  <option value="">Select time</option>
-                  <option value="09:00">09:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="12:00">12:00 PM</option>
-                  <option value="14:00">02:00 PM</option>
-                  <option value="15:00">03:00 PM</option>
-                  <option value="16:00">04:00 PM</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Notes (Optional):</label>
+                <label>Description</label>
                 <textarea
-                  value={bookingData.notes}
-                  onChange={(e) => setBookingData({...bookingData, notes: e.target.value})}
-                  placeholder="Any special requirements..."
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  rows="3"
                 />
               </div>
 
-              <div className="form-actions">
-                <button type="submit" className="btn-primary red-bg">
-                  Book Appointment
-                </button>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Price (KES) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => handleInputChange('price', e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Duration (minutes)</label>
+                  <input
+                    type="number"
+                    value={formData.duration}
+                    onChange={(e) => handleInputChange('duration', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => handleInputChange('category', e.target.value)}
+                  >
+                    {categories.filter(cat => cat.value !== 'all').map(cat => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label>Image URL</label>
+                  <input
+                    type="url"
+                    value={formData.image}
+                    onChange={(e) => handleInputChange('image', e.target.value)}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group checkbox-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={formData.staffRequired}
+                    onChange={(e) => handleInputChange('staffRequired', e.target.checked)}
+                  />
+                  Staff Required
+                </label>
+              </div>
+
+              <div className="dialog-actions">
                 <button 
-                  type="button" 
-                  className="btn-secondary red-border"
-                  onClick={() => setShowBookingForm(false)}
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setDialogOpen(false)}
                 >
                   Cancel
+                </button>
+                <button type="submit" className="btn-primary">
+                  {editingService ? 'Update Service' : 'Add Service'}
                 </button>
               </div>
             </form>
@@ -350,22 +435,38 @@ const ServicesPage = () => {
         </div>
       )}
 
-      {/* Call to Action */}
-      <section className="services-cta red-bg">
-        <div className="cta-content">
-          <h2>Ready to Experience Luxury?</h2>
-          <p>Book your appointment today and discover why we're the preferred choice for beauty and wellness.</p>
-          <div className="cta-buttons">
-            <button 
-              className="cta-btn-primary"
-              onClick={() => setShowBookingForm(true)}
-            >
-              Book Now
-            </button>
-            <button className="cta-btn-secondary">Call Us: +254 700 123 456</button>
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm.open && (
+        <div className="dialog-overlay">
+          <div className="dialog">
+            <h3>Delete Service</h3>
+            <p>Are you sure you want to delete this service? This action cannot be undone.</p>
+            
+            {deleteConfirm.service && (
+              <div className="service-summary">
+                <p><strong>Service:</strong> {deleteConfirm.service.name}</p>
+                <p><strong>Price:</strong> KES {deleteConfirm.service.price}</p>
+                <p><strong>Category:</strong> {deleteConfirm.service.category}</p>
+              </div>
+            )}
+
+            <div className="dialog-actions">
+              <button 
+                className="btn-secondary"
+                onClick={() => setDeleteConfirm({ open: false, service: null })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn-danger"
+                onClick={confirmDelete}
+              >
+                Delete Service
+              </button>
+            </div>
           </div>
         </div>
-      </section>
+      )}
     </div>
   );
 };
