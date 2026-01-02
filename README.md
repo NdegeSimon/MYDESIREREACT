@@ -1,16 +1,44 @@
-# React + Vite
+#  Desire Salon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Desire Salon is a modern salon platform designed to showcase services, attract clients, and make booking easy.  
+The project focuses on clean design, simplicity, and a smooth user experience.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+##  Project Overview
 
-## React Compiler
+Desire Salon helps clients:
+- View available salon services
+- Learn about the salon and its expertise
+- Contact or book appointments easily
 
-The React Compiler is not enabled on this template. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+It is built to be responsive, fast, and user-friendly on both mobile and desktop.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+##  Tech Stack
+
+**Frontend**
+- React
+
+**Backend (optional / future-ready)**
+- Flask (Python)
+- REST API
+
+**Deployment**
+- Render / Netlify / Vercel
+
+---
+
+##  Features
+
+- Responsive salon website
+- Services section (hair, beauty, grooming)
+- Contact & booking section
+- Clean and modern UI
+- Fast loading and mobile-first design
+
+---
+
+
+
