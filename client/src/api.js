@@ -8,21 +8,30 @@ class ApiService {
     this.client = axios.create({
       baseURL: API_BASE,
       timeout: 10000,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
     });
 
+    // Request interceptor to add auth token
     this.client.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem("authToken");
-        if (token) config.headers.Authorization = `Bearer ${token}`;
+        const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
         return config;
       },
       (error) => Promise.reject(error)
     );
 
+    // Response interceptor to handle errors
     this.client.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
+          localStorage.removeItem("token");
           localStorage.removeItem("authToken");
           localStorage.removeItem("userData");
           window.location.href = "/login";
@@ -30,6 +39,14 @@ class ApiService {
         return Promise.reject(error);
       }
     );
+  }
+
+  /**
+   * Check if user is authenticated
+   * @returns {boolean} True if user has a valid token
+   */
+  isAuthenticated() {
+    return !!(localStorage.getItem("token") || localStorage.getItem("authToken"));
   }
 
   // =============================
@@ -41,14 +58,21 @@ class ApiService {
    * @param {Object} credentials { email, password }
    */
   async login(credentials) {
-    const response = await this.client.post("/auth/login", credentials);
-    const { access_token, user } = response.data || {};
+    try {
+      const response = await this.client.post("/auth/login", credentials);
+      const { access_token, user } = response.data || {};
 
-    if (access_token) {
-      localStorage.setItem("authToken", access_token);
-      localStorage.setItem("userData", JSON.stringify(user));
+      if (access_token) {
+        // Store token in both 'token' and 'authToken' for backward compatibility
+        localStorage.setItem("token", access_token);
+        localStorage.setItem("authToken", access_token);
+        localStorage.setItem("userData", JSON.stringify(user));
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
-    return response.data;
   }
 
   /**
@@ -70,16 +94,109 @@ class ApiService {
    * Logout user
    */
   async logout() {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("userData");
+    try {
+      // Call logout API if available
+      await this.client.post("/auth/logout");
+    } catch (error) {
+      console.error('Logout API error:', error);
+      // Continue with client-side cleanup even if API call fails
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("userData");
+    }
   }
 
   /**
    * Get current user profile
    */
+  /**
+   * Get current user profile with enhanced error handling and logging
+   */
   async getCurrentUser() {
-    const response = await this.client.get("/auth/me");
-    return response.data;
+    try {
+      console.log('🔍 Fetching current user...');
+      let token = localStorage.getItem("token") || localStorage.getItem("authToken");
+      
+      // Clean up the token if it's wrapped in quotes
+      if (token && (token.startsWith('"') || token.startsWith("'"))) {
+        token = token.replace(/^["']|["']$/g, '');
+        localStorage.setItem("token", token);
+      }
+      
+      if (!token) {
+        console.warn('⚠️ No authentication token found');
+        throw new Error('No authentication token found. Please log in again.');
+      }
+
+      console.log('🔑 Token found, making request to /auth/me');
+      console.log('Token length:', token.length);
+      
+      // Make sure the token is a valid JWT (basic check)
+      if (token.split('.').length !== 3) {
+        console.error('❌ Invalid token format');
+        await this.logout();
+        throw new Error('Invalid token format. Please log in again.');
+      }
+
+      const response = await this.client.get("/auth/me", {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        validateStatus: (status) => status < 500,
+        withCredentials: true  // Important for cookies/sessions if using them
+      });
+
+      console.group('🔧 API Response Details');
+      console.log('Status:', response.status);
+      console.log('Headers:', response.headers);
+      console.log('Response Data:', response.data);
+      console.groupEnd();
+
+      // Handle different response statuses
+      switch (response.status) {
+        case 200:
+          if (response.data?.user) {
+            localStorage.setItem("userData", JSON.stringify(response.data.user));
+            console.log('✅ User data updated successfully');
+            return response.data;
+          }
+          throw new Error('Invalid user data received from server');
+
+        case 401:
+          console.warn('🔒 Unauthorized - Invalid or expired token');
+          await this.logout();
+          throw new Error('Your session has expired. Please log in again.');
+
+        case 422:
+          console.error('❌ Validation error:', response.data?.errors || response.data?.message);
+          throw new Error('Invalid request data. Please try again.');
+
+        default:
+          console.error('❌ Unexpected response:', response);
+          throw new Error(`Unexpected server response (${response.status})`);
+      }
+    } catch (error) {
+      console.group('❌ Error in getCurrentUser');
+      console.error('Error message:', error.message);
+      
+      if (error.response) {
+        console.error('Status:', error.response.status);
+        console.error('Data:', error.response.data);
+        console.error('Headers:', error.response.headers);
+      } else if (error.request) {
+        console.error('No response received:', error.request);
+      } else {
+        console.error('Request setup error:', error.message);
+      }
+      
+      console.groupEnd();
+
+      // Re-throw the error for the calling component to handle
+      throw error;
+    }
   }
 
   // =============================

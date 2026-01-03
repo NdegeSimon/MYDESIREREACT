@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../index.css';
 import './UserDashboard.css';
+import apiService from '../api';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -15,97 +16,70 @@ const UserDashboard = () => {
   });
   const [activeTab, setActiveTab] = useState('dashboard');
 
+  const fetchInitialData = useCallback(async () => {
+    try {
+      const userData = await apiService.getCurrentUser();
+      setUser(userData.user || userData);
+      await fetchDashboardData();
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+      if (error.response?.status === 401) {
+        navigate('/login');
+      }
+    }
+  }, [navigate]);
+
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!apiService.isAuthenticated()) {
       navigate('/login');
       return;
     }
-    
-    fetchDashboardData();
-    fetchUserProfile();
-  }, [navigate]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
+    fetchInitialData();
+  }, [navigate, fetchInitialData]);
 
   const fetchDashboardData = async () => {
     try {
       setDashboardData(prev => ({ ...prev, isLoading: true, error: null }));
-      const token = localStorage.getItem('token');
-      
-      if (!token) {
-        navigate('/login');
-        return;
-      }
 
-      // Fetch user appointments
-      const appointmentsResponse = await fetch('http://localhost:5000/api/appointments', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!appointmentsResponse.ok) {
-        throw new Error('Failed to fetch appointments');
-      }
-
-      const appointments = await appointmentsResponse.json();
-      const upcoming = Array.isArray(appointments.appointments) 
-        ? appointments.appointments.filter(appt => new Date(appt.date) > new Date())
-        : [];
-      
-      // Fetch staff and services count
-      const [staffResponse, servicesResponse] = await Promise.all([
-        fetch('http://localhost:5000/api/staff'),
-        fetch('http://localhost:5000/api/services')
+      // Fetch all data in parallel
+      const [appointmentsRes, staffRes, servicesRes] = await Promise.all([
+        apiService.client.get('/appointments').catch(() => ({ data: { appointments: [] } })),
+        apiService.client.get('/staff').catch(() => ({ data: { staff: [] } })),
+        apiService.client.get('/services').catch(() => ({ data: { services: [] } }))
       ]);
 
-      if (!staffResponse.ok || !servicesResponse.ok) {
-        throw new Error('Failed to fetch additional data');
-      }
+      const upcomingAppointments = Array.isArray(appointmentsRes.data.appointments) 
+        ? appointmentsRes.data.appointments.filter(appt => new Date(appt.date) > new Date())
+        : [];
 
-      const staffData = await staffResponse.json();
-      const servicesData = await servicesResponse.json();
-      
       setDashboardData({
-        upcomingAppointments: upcoming,
-        staffCount: staffData.staff?.length || 0,
-        servicesCount: servicesData.services?.length || 0,
+        upcomingAppointments,
+        staffCount: staffRes.data.staff?.length || 0,
+        servicesCount: servicesRes.data.services?.length || 0,
         isLoading: false,
         error: null
       });
     } catch (error) {
-      setDashboardData(prev => ({ 
-        ...prev, 
-        error: 'Failed to load dashboard data',
+      console.error('Error fetching dashboard data:', error);
+      setDashboardData(prev => ({
+        ...prev,
+        error: error.response?.data?.message || 'Failed to load dashboard data',
         isLoading: false
       }));
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('userData');
+      navigate('/login');
+    }
   };
 
   if (dashboardData.isLoading) {
