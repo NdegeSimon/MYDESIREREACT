@@ -1,32 +1,80 @@
-from flask import Flask, request, jsonify
+import os
+from datetime import datetime, timedelta
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, JWTManager
-from datetime import datetime
-import os
-
-app = Flask(__name__)
-CORS(app)
-
-# ==============================
-# Database Config
-# ==============================
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///salon.db"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "your-super-secret-jwt-key-change-this-in-production"
+from flask_jwt_extended import (
+    JWTManager, create_access_token, get_jwt_identity,
+    jwt_required, set_access_cookies, unset_jwt_cookies
+)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Initialize extensions
-bcrypt = Bcrypt(app)
+bcrypt = Bcrypt()
+db = SQLAlchemy()
+migrate = Migrate()
+jwt = JWTManager()
 
-# Import and initialize db
-from models import db
-db.init_app(app)
+def create_app():
+    # Create and configure the Flask app
+    app = Flask(__name__)
+    
+    # ==============================
+    # Configuration
+    # ==============================
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'dev-key-change-in-production'
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL') or \
+        'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'salon.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # JWT Configuration
+    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-change-in-production'
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+    app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=30)
+    app.config['JWT_TOKEN_LOCATION'] = ['cookies', 'headers']
+    app.config['JWT_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    app.config['JWT_COOKIE_CSRF_PROTECT'] = os.environ.get('FLASK_ENV') == 'production'
+    app.config['JWT_ACCESS_COOKIE_PATH'] = '/api/'
+    app.config['JWT_REFRESH_COOKIE_PATH'] = '/api/auth/refresh'
+    app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
+    
+    # CORS Configuration
+    CORS(app, 
+        resources={
+            r"/api/*": {
+                "origins": os.environ.get('FRONTEND_URL', 'http://localhost:5173'),
+                "supports_credentials": True,
+                "allow_headers": ["Content-Type", "Authorization"],
+                "expose_headers": ["Content-Type", "Authorization"],
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+            }
+        }
+    )
+    
+    # Initialize extensions with app
+    bcrypt.init_app(app)
+    db.init_app(app)
+    migrate.init_app(app, db)
+    jwt.init_app(app)
+    
+    # Import models after db initialization to avoid circular imports
+    from models import User, Service, Staff, Appointment, Booking, Payment, StaffAvailability
+    
+    # Register blueprints (if any)
+    # from .auth import auth_bp
+    # app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+    
+    return app
 
-migrate = Migrate(app, db)
-jwt = JWTManager(app)
+# Create the Flask application
+app = create_app()
 
-# Import all models after db initialization
+# Import all models after app creation to avoid circular imports
 from models import User, Service, Staff, Appointment, Booking, Payment, StaffAvailability
 
 # ==============================
