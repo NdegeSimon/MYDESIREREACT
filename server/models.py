@@ -1,10 +1,6 @@
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-from flask_bcrypt import Bcrypt
-
-# Initialize extensions
-db = SQLAlchemy()
-bcrypt = Bcrypt()
+# Import db and bcrypt from extensions
+from extensions import db, bcrypt
 
 # ==============================
 # ASSOCIATION TABLES

@@ -30,17 +30,27 @@ class ApiService {
   // =============================
 
   async login(credentials) {
-    const res = await client.post("/auth/login", credentials);
-
-    const { access_token, user } = res.data;
-    if (!access_token || !user) {
-      throw new Error("Invalid login response from server");
+    const response = await client.post("/auth/login", credentials);
+    
+    if (!response.data) {
+      throw new Error("No response from server");
     }
 
+    const { success, message, access_token, user, status } = response.data;
+    
+    if (!success) {
+      throw new Error(message || 'Login failed');
+    }
+    
+    if (!access_token || !user) {
+      throw new Error('Invalid response format from server');
+    }
+    
+    // Store the token and user data
     localStorage.setItem("token", access_token);
     localStorage.setItem("userData", JSON.stringify(user));
-
-    return user;
+    
+    return { access_token, user };
   }
 
   async signup(data) {

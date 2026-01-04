@@ -28,32 +28,26 @@ export function AuthProvider({ children }) {
     checkAuth();
   }, []);
 
-  // ✅ LOGIN FUNCTION (THIS WAS MISSING)
   const login = async ({ email, password }) => {
-  try {
-    const response = await api.login({ email, password });
-    
-    // The server returns { message, user, access_token }
-    const { access_token, user } = response;
-    
-    if (!access_token || !user) {
-      throw new Error('Invalid response from server');
+    try {
+      const response = await api.login({ email, password });
+      
+      if (!response || !response.access_token || !response.user) {
+        throw new Error('Invalid response from server');
+      }
+
+      // Update the user state
+      setUser(response.user);
+
+      return {
+        success: true,
+        data: { user: response.user }
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
-
-    // Store the token and user data
-    localStorage.setItem("token", access_token);
-    localStorage.setItem("userData", JSON.stringify(user));
-    setUser(user);
-
-    return {
-      success: true,
-      data: { user }  // Match the expected structure in Login.jsx
-    };
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error; // Re-throw to be caught by the Login component
-  }
-};
+  };
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
