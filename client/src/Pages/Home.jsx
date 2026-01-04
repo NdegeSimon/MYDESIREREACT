@@ -5,7 +5,8 @@ import Carousel from "../components/carousel";
 import "../App.css";
 import "../index.css";
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from "../context/AuthContext";// Make sure this import path is correct // Updated to correct location
+// In Home.jsx
+import { useAuth } from "../context/AuthContext";  // Update this line Make sure this import path is correct // Updated to correct location
 import { Link } from "react-router-dom";
 import {
   FaFacebookF,

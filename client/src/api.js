@@ -3,48 +3,39 @@ import axios from "axios";
 const API_BASE =
   import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
+const client = axios.create({
+  baseURL: API_BASE,
+  timeout: 10000,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+});
+
+// 🔐 Attach JWT to every request
+client.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 class ApiService {
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE,
-      timeout: 10000,
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-    });
-
-    // 🔐 Attach JWT to every request
-    this.client.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem("token");
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // 🚨 Global auth failure handler
-    this.client.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401) {
-          this.logout();
-        }
-        return Promise.reject(error);
-      }
-    );
-  }
-
   // =============================
   // 🔐 AUTH
   // =============================
 
   async login(credentials) {
-    const response = await this.client.post("/auth/login", credentials);
-    const { access_token, user } = response.data;
+    const res = await client.post("/auth/login", credentials);
+
+    const { access_token, user } = res.data;
+    if (!access_token || !user) {
+      throw new Error("Invalid login response from server");
+    }
 
     localStorage.setItem("token", access_token);
     localStorage.setItem("userData", JSON.stringify(user));
@@ -52,9 +43,13 @@ class ApiService {
     return user;
   }
 
-  async signup(userData) {
-    const response = await this.client.post("/auth/signup", userData);
-    const { access_token, user } = response.data;
+  async signup(data) {
+    const res = await client.post("/auth/signup", data);
+
+    const { access_token, user } = res.data;
+    if (!access_token || !user) {
+      throw new Error("Invalid signup response from server");
+    }
 
     localStorage.setItem("token", access_token);
     localStorage.setItem("userData", JSON.stringify(user));
@@ -62,29 +57,15 @@ class ApiService {
     return user;
   }
 
-  async logout() {
+  logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("userData");
   }
 
   async getCurrentUser() {
-    const response = await this.client.get("/auth/me");
-    localStorage.setItem("userData", JSON.stringify(response.data.user));
-    return response.data.user;
-  }
-
-  isAuthenticated() {
-    return !!localStorage.getItem("token");
-  }
-
-  getStoredUser() {
-    const user = localStorage.getItem("userData");
-    return user ? JSON.parse(user) : null;
-  }
-
-  isAdmin() {
-    const user = this.getStoredUser();
-    return user?.role === "admin";
+    const res = await client.get("/auth/me");
+    localStorage.setItem("userData", JSON.stringify(res.data.user));
+    return res.data.user;
   }
 
   // =============================
@@ -92,16 +73,11 @@ class ApiService {
   // =============================
 
   getProfile() {
-    return this.client.get("/users/profile").then((r) => r.data);
+    return client.get("/users/profile").then((r) => r.data);
   }
 
   updateProfile(data) {
-    return this.client.put("/users/profile", data).then((r) => {
-      if (r.data.user) {
-        localStorage.setItem("userData", JSON.stringify(r.data.user));
-      }
-      return r.data;
-    });
+    return client.put("/users/profile", data).then((r) => r.data);
   }
 
   // =============================
@@ -109,15 +85,15 @@ class ApiService {
   // =============================
 
   getAppointments() {
-    return this.client.get("/appointments").then((r) => r.data);
+    return client.get("/appointments").then((r) => r.data);
   }
 
   createAppointment(data) {
-    return this.client.post("/appointments", data).then((r) => r.data);
+    return client.post("/appointments", data).then((r) => r.data);
   }
 
   cancelAppointment(id) {
-    return this.client.delete(`/appointments/${id}`).then((r) => r.data);
+    return client.delete(`/appointments/${id}`).then((r) => r.data);
   }
 
   // =============================
@@ -125,11 +101,11 @@ class ApiService {
   // =============================
 
   getServices() {
-    return this.client.get("/services").then((r) => r.data);
+    return client.get("/services").then((r) => r.data);
   }
 
   getService(id) {
-    return this.client.get(`/services/${id}`).then((r) => r.data);
+    return client.get(`/services/${id}`).then((r) => r.data);
   }
 
   // =============================
@@ -137,11 +113,11 @@ class ApiService {
   // =============================
 
   getMyPayments() {
-    return this.client.get("/user/payments").then((r) => r.data);
+    return client.get("/user/payments").then((r) => r.data);
   }
 
   initiatePayment(data) {
-    return this.client.post("/payments/initiate", data).then((r) => r.data);
+    return client.post("/payments/initiate", data).then((r) => r.data);
   }
 
   // =============================
@@ -149,13 +125,12 @@ class ApiService {
   // =============================
 
   getAdminStats() {
-    return this.client.get("/admin/dashboard/stats").then((r) => r.data);
+    return client.get("/admin/dashboard/stats").then((r) => r.data);
   }
 
   adminGetAllUsers() {
-    return this.client.get("/admin/users").then((r) => r.data);
+    return client.get("/admin/users").then((r) => r.data);
   }
 }
 
-const salonApi = new ApiService();
-export default salonApi;
+export default new ApiService();

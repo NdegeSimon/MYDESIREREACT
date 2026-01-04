@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../context/AuthContext";
 import "../App.css";
 import "../index.css";
 
@@ -74,15 +74,16 @@ function Login() {
       const result = await login(formData);
       
       if (result.success) {
-        console.log("Login successful:", result.data);
-        
-        // Redirect based on user role
-        if (result.data.user.role === "admin") {
-          navigate("/admin");
-        } else {
-          navigate("/userdashboard");
-        }
-      } else {
+  console.log("Login successful:", result.data);
+  
+  // Redirect based on user role
+  const userRole = result.data.user.role;
+  if (userRole === "admin") {
+    navigate("/admin");
+  } else {
+    navigate("/userdashboard");
+  }
+} else {
         setErrors({ submit: result.error });
       }
     } catch (error) {
