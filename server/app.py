@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_bcrypt import Bcrypt
+from flask_sqlalchemy import SQLAlchemy 
 from flask_jwt_extended import (
     JWTManager, create_access_token, get_jwt_identity,
     jwt_required, set_access_cookies, unset_jwt_cookies
