@@ -5,7 +5,7 @@ import Carousel from "../components/carousel";
 import "../App.css";
 import "../index.css";
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from "../../../context/AuthContext"; // Updated to correct location
+import { useAuth } from "../context/AuthContext";// Make sure this import path is correct // Updated to correct location
 import { Link } from "react-router-dom";
 import {
   FaFacebookF,
@@ -20,8 +20,13 @@ import lg from "../assets/lg.png";
 
 function Home() {
   const [currentOffer, setCurrentOffer] = useState(0);
-  const { user } = useAuth();
+  
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
   
   const slides = [
     { img: p2Image },
