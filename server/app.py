@@ -41,14 +41,29 @@ def create_app():
     app.config['JWT_COOKIE_SAMESITE'] = 'Lax'
 
     # CORS Config
-    CORS(app,
-         resources={r"/api/*": {
+    # In your app.py file, find the CORS configuration (around line 40-50)
+CORS(app,
+     resources={
+         r"/api/*": {
              "origins": os.environ.get('FRONTEND_URL', 'http://localhost:5173'),
              "supports_credentials": True,
-             "allow_headers": ["Content-Type", "Authorization"],
+             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
              "expose_headers": ["Content-Type", "Authorization"],
-             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-         }})
+             "max_age": 600
+         }
+     })
+    
+# Handle preflight requests
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = jsonify({"status": "preflight"})
+        response.headers.add("Access-Control-Allow-Origin", os.environ.get('FRONTEND_URL', 'http://localhost:5173'))
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Requested-With")
+        response.headers.add("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS")
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response, 200
 
     # Initialize extensions
     bcrypt.init_app(app)
@@ -313,4 +328,4 @@ if __name__ == "__main__":
     with app.app_context():
         initialize_database()
     
-    app.run(port=5000, debug=True)
+    app.run(port=5001, debug=True)
